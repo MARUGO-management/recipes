@@ -1,0 +1,5096 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>レシピ表示 — Recipe Box</title>
+  <link rel="icon" type="image/x-icon" href="../favicon.ico">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.0.2/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+  <!-- HTML to Canvas変換 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  
+  <!-- 外部JavaScriptファイル -->
+  <script src="../assets/js/utils.js"></script>
+  <script src="../assets/js/database.js"></script>
+  <script src="../assets/js/translation.js?v=20250116dual"></script>
+  <script src="../assets/js/pdf-generator.js?v=20250917cors-fix"></script>
+  <script src="../assets/js/pdf-generator-v2.js?v=20250917debug-flow"></script>
+  <script src="../assets/js/ui-components.js"></script>
+  <script src="../assets/js/recipe-view.js"></script>
+
+  <link rel="stylesheet" href="../assets/css/style.css?v=20250116ai">
+  <link rel="stylesheet" href="../assets/css/components.css?v=20250115">
+  <style>
+    /* 翻訳タイトルのスタイル */
+    .translated-title {
+      font-size: 0.9em;
+      color: #ffffff;
+      font-style: italic;
+      margin-top: 0.25rem;
+      margin-bottom: 0.5rem;
+      padding-left: 0.5rem;
+      border-left: 3px solid #ddd;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .translated-text {
+      font-size: 1em;
+    }
+    
+    .original-text {
+      font-size: 0.7em;
+      color: #cccccc;
+      margin-left: 0.5rem;
+    }
+    
+    /* 翻訳レイアウト情報のスタイル */
+    .translation-layout-info {
+      margin: 1rem 0;
+      padding: 1rem;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+    
+    .translation-info-card {
+      background: rgba(255, 255, 255, 0.95);
+      padding: 1.5rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    
+    .translation-info-card h4 {
+      color: #333;
+      margin: 0 0 1rem 0;
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .translation-info-card p {
+      margin: 0.5rem 0;
+      color: #555;
+      font-size: 0.9rem;
+    }
+    
+    .translation-info-card strong {
+      color: #333;
+      font-weight: 600;
+    }
+    
+    .translated-description {
+      margin: 1rem 0;
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      border-left: 3px solid #4a90e2;
+    }
+    
+    .translated-description .translated-text {
+      font-size: 1em;
+      color: #ffffff;
+      margin-bottom: 0.5rem;
+    }
+    
+    .translated-description .original-text {
+      font-size: 0.8em;
+      color: #cccccc;
+      font-style: italic;
+    }
+    
+    .translated-section {
+      margin: 1.5rem 0;
+      padding: 1rem 1rem 1rem 1.5rem;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 8px;
+      border-left: 3px solid #4a90e2;
+    }
+    
+    .translated-section ol {
+      padding-left: 0;
+      margin-left: 0;
+    }
+    
+    .translated-section ol li {
+      list-style: none;
+      position: relative;
+      padding-left: 2rem;
+      margin-bottom: 0.8rem;
+      line-height: 1.6;
+    }
+    
+    .translated-section ol li::before {
+      content: counter(step-counter);
+      counter-increment: step-counter;
+      position: absolute;
+      left: 0;
+      top: 0;
+      background: #4a90e2;
+      color: white;
+      width: 1.5rem;
+      height: 1.5rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: bold;
+    }
+    
+    /* AI創作レシピアイコンのスタイル */
+    .ai-generated-icon {
+      color: #ff6b6b;
+      margin-left: 0.5rem;
+      font-size: 0.9em;
+      opacity: 0.8;
+      transition: all 0.2s ease;
+    }
+    
+    .ai-generated-icon:hover {
+      opacity: 1;
+      transform: scale(1.1);
+    }
+    
+    .translated-section ol {
+      counter-reset: step-counter;
+    }
+    
+    .translated-section h4 {
+      color: #4a90e2;
+      margin-bottom: 1rem;
+      font-size: 1.1em;
+    }
+    
+    .original-section {
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .original-section h5 {
+      color: #cccccc;
+      margin-bottom: 0.5rem;
+      font-size: 0.9em;
+    }
+    
+    .original-section ol {
+      padding-left: 0;
+      margin-left: 0;
+    }
+    
+    .original-section ol li {
+      list-style: none;
+      position: relative;
+      padding-left: 2rem;
+      margin-bottom: 0.8rem;
+      line-height: 1.6;
+      color: #cccccc;
+    }
+    
+    .original-section ol li::before {
+      content: counter(original-step-counter);
+      counter-increment: original-step-counter;
+      position: absolute;
+      left: 0;
+      top: 0;
+      background: #666;
+      color: white;
+      width: 1.5rem;
+      height: 1.5rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: bold;
+    }
+    
+    .original-section ol {
+      counter-reset: original-step-counter;
+    }
+    
+    /* 翻訳ポップアップのダークテーマ */
+    .translate-popup {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 1000;
+    }
+    
+    .translate-popup-content {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #2a2a2a;
+      padding: 2rem;
+      border-radius: 12px;
+      min-width: 320px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      border: 1px solid #444;
+    }
+    
+    .translate-popup-content h3 {
+      margin-top: 0;
+      margin-bottom: 1.5rem;
+      color: #ffffff;
+      text-align: center;
+      font-size: 1.2em;
+    }
+    
+    .language-buttons {
+      margin-bottom: 1.5rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+    
+    .language-buttons .btn {
+      margin: 0;
+      padding: 0.75rem 1rem;
+      font-size: 0.9em;
+      text-align: center;
+      border-radius: 8px;
+      transition: all 0.2s ease;
+    }
+    
+    .language-buttons .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    
+    /* 翻訳中アニメーションのダークテーマ */
+    .translate-loading {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 1001;
+    }
+    
+    .translate-loading-content {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #2a2a2a;
+      padding: 2rem;
+      border-radius: 12px;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      border: 1px solid #444;
+      min-width: 200px;
+    }
+    
+    .loading-icon {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+    
+    .loading-text {
+      font-size: 1.2rem;
+      margin-bottom: 1rem;
+      color: #ffffff;
+    }
+    
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #444;
+      border-top: 4px solid #4a90e2;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+    
+    /* 国旗のスタイル */
+    .flag-emoji {
+      font-size: 1em;
+      margin-left: 0.25rem;
+    }
+
+    /* テーブルの幅調整 */
+    .table {
+      width: 100%;
+      max-width: 100%;
+      table-layout: fixed;
+      word-wrap: break-word;
+      border-collapse: collapse;
+      border-spacing: 0;
+    }
+    
+    .table th,
+    .table td {
+      padding: 4px 8px;
+      text-align: left;
+      vertical-align: top;
+      word-break: break-word;
+      line-height: 1.5;
+      border-bottom: 1px solid rgba(204, 204, 204, 0.5);
+    }
+    
+    .table th:nth-child(1),
+    .table td:nth-child(1) {
+      width: 8%;
+      text-align: center;
+    }
+    
+    .table th:nth-child(2),
+    .table td:nth-child(2) {
+      width: 40%;
+    }
+    
+    .table th:nth-child(3),
+    .table td:nth-child(3) {
+      width: 25%;
+      text-align: right;
+    }
+    
+    .table th:nth-child(4),
+    .table td:nth-child(4) {
+      width: 15%;
+      text-align: center;
+    }
+    
+    .table th:nth-child(5),
+    .table td:nth-child(5) {
+      width: 12%;
+      text-align: right;
+    }
+    
+    
+    /* レスポンシブ対応 */
+    @media (max-width: 768px) {
+      .table th,
+      .table td {
+        padding: 3px 6px;
+        font-size: 0.9em;
+        line-height: 1.5;
+        border-bottom: 1px solid rgba(204, 204, 204, 0.5);
+      }
+      
+      .table th:nth-child(1),
+      .table td:nth-child(1) {
+        width: 10%;
+      }
+      
+      .table th:nth-child(2),
+      .table td:nth-child(2) {
+        width: 45%;
+      }
+      
+      .table th:nth-child(3),
+      .table td:nth-child(3) {
+        width: 25%;
+      }
+      
+      .table th:nth-child(4),
+      .table td:nth-child(4) {
+        width: 20%;
+      }
+    }
+    /* ===== AIモーダル（3タブ統合版） ===== */
+    .ai-view-modal-overlay{ 
+      position:fixed; 
+      inset:0; 
+      background:rgba(0,0,0,.45); 
+      z-index:1000; 
+      display:none; 
+      align-items:center; 
+      justify-content:center; 
+      padding:1rem;
+    }
+    .ai-view-modal-content{ 
+      background:var(--bg-panel,#fff); 
+      color:var(--fg,#222); 
+      width:clamp(320px,95vw,860px); 
+      height:clamp(400px,85vh,800px); 
+      max-height:90vh; 
+      overflow:hidden; 
+      border-radius:12px; 
+      box-shadow:0 8px 28px rgba(0,0,0,.35); 
+      display:flex; 
+      flex-direction:column;
+      margin:auto;
+    }
+    .ai-view-modal-header{ 
+      display:flex; 
+      align-items:center; 
+      justify-content:space-between; 
+      gap:1rem; 
+      padding:.85rem 1rem; 
+      border-bottom:1px solid rgba(0,0,0,.08);
+      flex-shrink:0;
+    }
+    .ai-view-modal-title{ 
+      font-weight:700; 
+      font-size:clamp(1rem,4vw,1.25rem);
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .ai-view-modal-close{ 
+      background:#f3f4f6; 
+      border:1px solid #d1d5db; 
+      font-size:1.2rem; 
+      line-height:1; 
+      cursor:pointer;
+      flex-shrink:0;
+      padding:0.5rem;
+      border-radius:6px;
+      color:#374151;
+      transition:all 0.2s ease;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      width:32px;
+      height:32px;
+    }
+    
+    .ai-view-modal-close:hover{ 
+      background:#e5e7eb; 
+      border-color:#9ca3af;
+      color:#1f2937;
+      transform:scale(1.05);
+    }
+    
+    .ai-view-modal-close:active{ 
+      transform:scale(0.95);
+    }
+    
+    .ai-view-modal-close:focus{ 
+      outline:2px solid #3b82f6;
+      outline-offset:2px;
+    }
+    .ai-view-tabs{ 
+      display:flex; 
+      gap:.25rem; 
+      padding:.5rem; 
+      border-bottom:1px solid rgba(0,0,0,.06); 
+      background:var(--bg-muted,#f7f7f7);
+      flex-shrink:0;
+      overflow-x:auto;
+      scrollbar-width:none;
+      -ms-overflow-style:none;
+    }
+    .ai-view-tabs::-webkit-scrollbar{ display:none; }
+    .ai-tab{ 
+      padding:.4rem .75rem; 
+      border-radius:999px; 
+      cursor:pointer; 
+      border:1px solid transparent;
+      white-space:nowrap;
+      flex-shrink:0;
+      font-size:clamp(0.8rem,3vw,0.9rem);
+    }
+    .ai-tab[aria-selected="true"]{ background:#e8f0fe; border-color:#b6cef7; }
+    .ai-chat-container{ 
+      flex:1; 
+      overflow:auto; 
+      padding:1rem; 
+      display:none;
+      min-height:0;
+      max-width:100%;
+      box-sizing:border-box;
+      word-wrap:break-word;
+      word-break:break-word;
+      overflow-wrap:break-word;
+      overflow-x:auto;
+      overflow-y:auto;
+      white-space:normal;
+      text-overflow:unset;
+      hyphens:auto;
+      -webkit-hyphens:auto;
+      -moz-hyphens:auto;
+      -ms-hyphens:auto;
+      max-height:calc(100% - 120px);
+    }
+    
+    /* AIアシスタント内のすべての要素に対して根本的な折り返し設定 */
+    .ai-chat-container * {
+      overflow: visible !important;
+      text-overflow: unset !important;
+      white-space: normal !important;
+      word-wrap: break-word !important;
+      word-break: break-word !important;
+      overflow-wrap: break-word !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    .ai-chat-container.active{ display:block; }
+    .ai-input-row{ 
+      display:flex; 
+      gap:.5rem; 
+      padding:.75rem 1rem; 
+      border-top:1px solid rgba(0,0,0,.08);
+      flex-shrink:0;
+      flex-wrap:wrap;
+    }
+    .ai-input-row textarea{ 
+      flex:1; 
+      resize:vertical; 
+      min-height:42px;
+      min-width:200px;
+    }
+    .ai-btn{ 
+      padding:.5rem .85rem; 
+      border:1px solid #d0d7de; 
+      border-radius:8px; 
+      background:#fff; 
+      cursor:pointer;
+      white-space:nowrap;
+      flex-shrink:0;
+    }
+    .ai-btn.primary{ background:#2563eb; color:#fff; border-color:#2563eb; }
+    
+    /* レスポンシブ対応 */
+    @media (max-width: 768px) {
+      .ai-view-modal-overlay{ 
+        padding:0.5rem;
+        align-items:flex-start;
+        padding-top:2rem;
+      }
+      .ai-view-modal-content{ 
+        width:100%;
+        height:clamp(350px,90vh,750px);
+        max-height:95vh;
+        border-radius:8px;
+      }
+      .ai-view-modal-header{ 
+        padding:.75rem 1rem;
+      }
+      .ai-view-modal-title{ 
+        font-size:1rem;
+      }
+      .ai-view-modal-close{ 
+        width:28px;
+        height:28px;
+        font-size:1rem;
+        padding:0.4rem;
+      }
+      .ai-view-tabs{ 
+        padding:.4rem;
+        gap:.2rem;
+      }
+      .ai-tab{ 
+        padding:.3rem .6rem;
+        font-size:0.8rem;
+      }
+      
+      /* 手順リストのモバイル対応 */
+      .ai-msg ol li {
+        margin: 0.4rem 0 !important;
+        padding: 0.3rem 0 !important;
+        line-height: 1.6 !important;
+        font-size: 0.9em !important;
+      }
+      
+      .ai-msg ol {
+        padding-left: 1.2rem !important;
+        margin: 0.6rem 0 !important;
+      }
+      .ai-chat-container{ 
+        padding:.75rem;
+        max-height:calc(100% - 100px);
+      }
+      .ai-input-row{ 
+        padding:.5rem .75rem;
+        gap:.4rem;
+      }
+      .ai-input-row textarea{ 
+        min-width:150px;
+        min-height:36px;
+      }
+      .ai-btn{ 
+        padding:.4rem .7rem;
+        font-size:0.85rem;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .ai-view-modal-overlay{ 
+        padding:0.25rem;
+        padding-top:1rem;
+      }
+      .ai-view-modal-content{ 
+        height:clamp(300px,95vh,700px);
+        max-height:98vh;
+        border-radius:6px;
+      }
+      .ai-view-modal-header{ 
+        padding:.6rem .8rem;
+      }
+      .ai-view-modal-title{ 
+        font-size:0.9rem;
+      }
+      .ai-view-modal-close{ 
+        width:26px;
+        height:26px;
+        font-size:0.9rem;
+        padding:0.3rem;
+      }
+      .ai-view-tabs{ 
+        padding:.3rem;
+        gap:.15rem;
+      }
+      .ai-tab{ 
+        padding:.25rem .5rem;
+        font-size:0.75rem;
+      }
+      .ai-chat-container{ 
+        padding:.5rem;
+        max-height:calc(100% - 90px);
+      }
+      .ai-input-row{ 
+        padding:.4rem .6rem;
+        gap:.3rem;
+        flex-direction:column;
+      }
+      .ai-input-row textarea{ 
+        min-width:100%;
+        min-height:32px;
+      }
+      .ai-btn{ 
+        padding:.35rem .6rem;
+        font-size:0.8rem;
+        width:100%;
+      }
+      
+      /* 手順リストのスマートフォン対応 */
+      .ai-msg ol li {
+        margin: 0.3rem 0 !important;
+        padding: 0.2rem 0 !important;
+        line-height: 1.5 !important;
+        font-size: 0.85em !important;
+      }
+      
+      .ai-msg ol {
+        padding-left: 1rem !important;
+        margin: 0.5rem 0 !important;
+      }
+      
+      .ai-msg{ 
+        padding:.75rem 1rem;
+        font-size:0.9em;
+        margin:.6rem 0;
+      }
+      
+      .ai-msg h1, .ai-msg h2, .ai-msg h3, .ai-msg h4 {
+        font-size:1.1em;
+        margin:1rem 0 0.6rem 0;
+      }
+      
+      .ai-msg ul, .ai-msg ol {
+        padding-left:1.2rem;
+      }
+      
+      .ai-msg pre {
+        padding:.75rem;
+        font-size:0.85em;
+      }
+      
+      .ai-msg .improvement-section {
+        padding:.75rem;
+      }
+    }
+    
+    .ai-msg{ 
+      margin:.8rem 0; 
+      padding:1rem 1.2rem; 
+      border-radius:12px; 
+      border:1px solid #e5e7eb; 
+      background:#fafafa; 
+      line-height:1.7; 
+      font-size: 0.95em;
+      word-wrap: break-word !important;
+      word-break: break-word !important;
+      overflow-wrap: break-word !important;
+      hyphens: auto !important;
+      -webkit-hyphens: auto !important;
+      -moz-hyphens: auto !important;
+      -ms-hyphens: auto !important;
+      max-width: 100% !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+      overflow: visible !important;
+      white-space: normal !important;
+      text-overflow: unset !important;
+    }
+    .ai-msg.user{ 
+      background:#eef5ff; 
+      border-color:#cfe2ff; 
+    }
+    
+    /* マークダウン風のスタイリング */
+    .ai-msg h1, .ai-msg h2, .ai-msg h3, .ai-msg h4 {
+      margin: 1.5rem 0 0.8rem 0;
+      color: #1a1a1a;
+      font-weight: 600;
+      word-wrap: break-word !important;
+      word-break: break-word !important;
+      overflow-wrap: break-word !important;
+      max-width: 100% !important;
+      white-space: normal !important;
+    }
+    
+    .ai-msg h1 { 
+      font-size: 1.4em; 
+      border-bottom: 2px solid #e5e7eb; 
+      padding-bottom: 0.5rem; 
+      word-wrap: break-word !important;
+      word-break: break-word !important;
+      overflow-wrap: break-word !important;
+      max-width: 100% !important;
+      white-space: normal !important;
+    }
+    .ai-msg h2 { 
+      font-size: 1.3em; 
+      border-bottom: 1px solid #e5e7eb; 
+      padding-bottom: 0.3rem; 
+      word-wrap: break-word !important;
+      word-break: break-word !important;
+      overflow-wrap: break-word !important;
+      max-width: 100% !important;
+      white-space: normal !important;
+    }
+    
+    /* ===== ステータスポップアップ ===== */
+    .status-popup {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+    
+    .status-popup-content {
+      background: var(--bg-primary);
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      min-width: 300px;
+      max-width: 500px;
+      border: 1px solid var(--border-medium);
+    }
+    
+    .status-icon {
+      flex-shrink: 0;
+    }
+    
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #2563eb;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .status-text {
+      flex: 1;
+    }
+    
+    .status-title {
+      font-weight: 600;
+      font-size: 1.1em;
+      color: var(--text-primary);
+      margin-bottom: 0.25rem;
+    }
+    
+    .status-message {
+      color: var(--text-muted);
+      font-size: 0.9em;
+    }
+    
+    .status-popup.success .spinner {
+      border: 3px solid #d1fae5;
+      border-top: 3px solid #10b981;
+    }
+    
+    .status-popup.error .spinner {
+      border: 3px solid #fee2e2;
+      border-top: 3px solid #ef4444;
+    }
+    
+    .status-popup.success .status-title {
+      color: #10b981;
+    }
+    
+    .status-popup.error .status-title {
+      color: #ef4444;
+    }
+    .ai-msg h3 { font-size: 1.2em; color: #2563eb; }
+    .ai-msg h4 { font-size: 1.1em; color: #374151; }
+    
+    .ai-msg p {
+      margin: 0.8rem 0;
+      line-height: 1.7;
+      word-wrap: break-word !important;
+      word-break: break-word !important;
+      overflow-wrap: break-word !important;
+      max-width: 100% !important;
+      white-space: normal !important;
+    }
+    
+    .ai-msg ul, .ai-msg ol {
+      margin: 0.8rem 0;
+      padding-left: 1.5rem;
+      word-wrap: break-word !important;
+      word-break: break-word !important;
+      overflow-wrap: break-word !important;
+      max-width: 100% !important;
+      white-space: normal !important;
+      overflow: visible !important;
+    }
+    
+    .ai-msg li {
+      margin: 0.4rem 0;
+      line-height: 1.6;
+      word-wrap: break-word !important;
+      word-break: break-word !important;
+      overflow-wrap: break-word !important;
+      max-width: 100% !important;
+      white-space: normal !important;
+      padding: 0.2rem 0;
+      overflow: visible !important;
+    }
+    
+    /* 手順リストの特別なスタイリング */
+    .ai-msg ol li {
+      margin: 0.6rem 0 !important;
+      padding: 0.4rem 0 !important;
+      line-height: 1.7 !important;
+      overflow: visible !important;
+      word-wrap: break-word !important;
+      word-break: break-word !important;
+      overflow-wrap: break-word !important;
+      max-width: 100% !important;
+      white-space: normal !important;
+      display: block !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+      text-overflow: unset !important;
+      hyphens: auto !important;
+      -webkit-hyphens: auto !important;
+      -moz-hyphens: auto !important;
+      -ms-hyphens: auto !important;
+      list-style-position: outside !important;
+      list-style-type: decimal !important;
+      position: relative !important;
+    }
+    
+    /* 手順リストの番号部分のスタイリング */
+    .ai-msg ol li::marker {
+      content: counter(list-item) ". " !important;
+      font-weight: bold !important;
+      color: #374151 !important;
+    }
+    
+    /* 手順リストのテキスト部分のスタイリング */
+    .ai-msg ol li > * {
+      word-wrap: break-word !important;
+      word-break: break-word !important;
+      overflow-wrap: break-word !important;
+      max-width: 100% !important;
+      white-space: normal !important;
+      text-overflow: unset !important;
+      hyphens: auto !important;
+      -webkit-hyphens: auto !important;
+      -moz-hyphens: auto !important;
+      -ms-hyphens: auto !important;
+    }
+    
+    /* 手順リスト全体のスタイリング */
+    .ai-msg ol {
+      width: 100% !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+      overflow: visible !important;
+      margin: 0.8rem 0 !important;
+      padding-left: 1.5rem !important;
+      word-wrap: break-word !important;
+      word-break: break-word !important;
+      overflow-wrap: break-word !important;
+      white-space: normal !important;
+      text-overflow: unset !important;
+    }
+    
+    /* AIアシスタント内のすべての要素に対して折り返しを強制適用 */
+    .ai-msg * {
+      overflow: visible !important;
+      text-overflow: unset !important;
+      white-space: normal !important;
+      word-wrap: break-word !important;
+      word-break: break-word !important;
+      overflow-wrap: break-word !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    
+    /* ただし、ボタンや特定の要素は除外 */
+    .ai-msg .btn,
+    .ai-msg button,
+    .ai-msg input,
+    .ai-msg select,
+    .ai-msg textarea {
+      overflow: visible !important;
+      text-overflow: unset !important;
+      white-space: normal !important;
+      word-wrap: break-word !important;
+      word-break: break-word !important;
+      overflow-wrap: break-word !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    
+    .ai-msg strong {
+      color: #1a1a1a;
+      font-weight: 600;
+    }
+    
+    .ai-msg em {
+      color: #6b7280;
+      font-style: italic;
+    }
+    
+    .ai-msg blockquote {
+      margin: 1rem 0;
+      padding: 0.8rem 1rem;
+      background: #f8f9fa;
+      border-left: 4px solid #2563eb;
+      border-radius: 0 6px 6px 0;
+    }
+    
+    .ai-msg code {
+      background: #f1f5f9;
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 0.9em;
+      color: #dc2626;
+      word-wrap: break-word !important;
+      word-break: break-all !important;
+      overflow-wrap: break-word !important;
+      max-width: 100% !important;
+      white-space: normal !important;
+    }
+    
+    .ai-msg pre {
+      background: #f8f9fa;
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      overflow-y: auto;
+      border: 1px solid #e5e7eb;
+      margin: 1rem 0;
+      max-width: 100% !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+      white-space: pre-wrap !important;
+      word-wrap: break-word !important;
+      word-break: break-word !important;
+      overflow-wrap: break-word !important;
+    }
+    
+    .ai-msg pre code {
+      background: none;
+      padding: 0;
+      color: #374151;
+    }
+    
+    /* 改善提案の特別なスタイリング */
+    .ai-msg .improvement-section {
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      border-radius: 8px;
+      padding: 1rem;
+      margin: 1rem 0;
+      word-wrap: break-word !important;
+      word-break: break-word !important;
+      overflow-wrap: break-word !important;
+      max-width: 100% !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+      white-space: normal !important;
+    }
+    
+    .ai-msg .improvement-title {
+      color: #0369a1;
+      font-weight: 600;
+      font-size: 1.1em;
+      margin-bottom: 0.8rem;
+      word-wrap: break-word !important;
+      word-break: break-word !important;
+      overflow-wrap: break-word !important;
+      max-width: 100% !important;
+      white-space: normal !important;
+    }
+    
+    .ai-msg .rationale, .ai-msg .implementation, .ai-msg .risk {
+      margin: 0.8rem 0;
+      padding: 0.6rem 0.8rem;
+      border-radius: 6px;
+      word-wrap: break-word !important;
+      word-break: break-word !important;
+      overflow-wrap: break-word !important;
+      max-width: 100% !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+      white-space: normal !important;
+    }
+    
+    .ai-msg .rationale {
+      background: #fef3c7;
+      border-left: 3px solid #f59e0b;
+    }
+    
+    .ai-msg .implementation {
+      background: #dbeafe;
+      border-left: 3px solid #3b82f6;
+    }
+    
+    .ai-msg .risk {
+      background: #fee2e2;
+      border-left: 3px solid #ef4444;
+    }
+    
+    .ai-msg .rationale::before {
+      content: "根拠: ";
+      font-weight: 600;
+      color: #92400e;
+    }
+    
+    .ai-msg .implementation::before {
+      content: "実装: ";
+      font-weight: 600;
+      color: #1e40af;
+    }
+    
+    .ai-msg .risk::before {
+      content: "リスク: ";
+      font-weight: 600;
+      color: #991b1b;
+    }
+    .loading{ width:24px; height:24px; border:3px solid rgba(0,0,0,.15); border-top-color:rgba(0,0,0,.45); border-radius:50%; animation:spin 1s linear infinite; margin:.25rem auto; }
+    @keyframes spin{ to{ transform:rotate(360deg);} }
+    body.modal-open{ overflow:hidden; }
+    
+    /* レシピ化進行状況ポップアップ */
+    .recipe-progress-popup {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+    }
+    
+    .recipe-progress-content {
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      text-align: center;
+      min-width: 300px;
+      max-width: 400px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+    
+    .progress-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      animation: bounce 2s infinite;
+    }
+    
+    .progress-title {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #1a1a1a;
+      margin-bottom: 0.5rem;
+    }
+    
+    .progress-text {
+      font-size: 0.9rem;
+      color: #666;
+      margin-bottom: 1.5rem;
+      min-height: 1.2rem;
+    }
+    
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #e5e7eb;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 0.5rem;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+      border-radius: 4px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+    
+    .progress-percentage {
+      font-size: 0.8rem;
+      color: #666;
+      font-weight: 500;
+    }
+    
+    @keyframes bounce {
+      0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+      40% { transform: translateY(-10px); }
+      60% { transform: translateY(-5px); }
+    }
+    /* 既存の解析カードの体裁補助 */
+    .grid{ display:grid; grid-template-columns: 1fr auto; gap:.25rem .75rem; align-items:baseline; }
+    .card .num{ text-align:right; }
+
+    /* AIモーダル内のテーブルを見やすくするスタイル */
+    .ai-chat-container table {
+        width: 100% !important;
+        max-width: 100% !important;
+        border-collapse: collapse;
+        margin-top: 1rem;
+        margin-bottom: 1rem;
+        font-size: 0.9em;
+        line-height: 1.5;
+        table-layout: fixed;
+        word-wrap: break-word !important;
+        word-break: break-word !important;
+        overflow-wrap: break-word !important;
+    }
+    .ai-chat-container th,
+    .ai-chat-container td {
+        border: 1px solid #dee2e6; /* var(--line-primary) */
+        padding: 0.6rem 0.75rem;
+        text-align: left;
+        vertical-align: top;
+        word-wrap: break-word !important;
+        word-break: break-word !important;
+        overflow-wrap: break-word !important;
+        max-width: 0 !important;
+        white-space: normal !important;
+    }
+    .ai-chat-container th {
+        background-color: #f8f9fa; /* Lighter than --bg-muted */
+        font-weight: 600;
+        word-wrap: break-word !important;
+        word-break: break-word !important;
+        overflow-wrap: break-word !important;
+        white-space: normal !important;
+    }
+    .ai-chat-container tr:nth-child(even) {
+        background-color: #f7f7f7; /* var(--bg-muted) */
+    }
+  </style>
+</head>
+<body>
+
+  <header class="app-header">
+    <h1 class="brand">レシピ表示</h1>
+    <div class="header-actions" data-actions>
+      <button class="btn primary small js-ai-advice">✨ AIアドバイス</button>
+      <button class="btn secondary js-export-pdf">📄 PDF出力</button>
+      <button class="btn secondary js-export-csv">📊 CSV出力</button>
+      <button class="btn secondary js-show-readable-text">📝 読みやすいテキスト</button>
+      <button class="btn js-edit">編集</button>
+      <button class="btn ghost js-delete" style="color:#c0392b;border-color:#c0392b;">削除</button>
+      <button class="btn js-back">戻る</button>
+    </div>
+  </header>
+
+  <!-- ステータス表示ポップアップ -->
+  <div id="statusPopup" class="status-popup" style="display: none;">
+    <div class="status-popup-content">
+      <div class="status-icon">
+        <div class="spinner"></div>
+      </div>
+      <div class="status-text">
+        <div class="status-title">処理中...</div>
+        <div class="status-message">しばらくお待ちください</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 読みやすいテキスト表示モーダル -->
+  <div id="readableTextModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 800px; max-height: 80vh;">
+      <div class="modal-header">
+        <h2 class="modal-title">読みやすいテキスト形式</h2>
+        <button id="readableTextCloseBtn" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="readableTextContent" style="white-space: pre-wrap; font-family: 'Courier New', monospace; line-height: 1.6; max-height: 60vh; overflow-y: auto; background: #ffffff; color: #2c3e50; padding: 1.5rem; border-radius: 6px; border: 1px solid #e1e8ed; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" contenteditable="true"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="readableTextEditBtn" class="btn secondary">編集</button>
+        <button id="readableTextSaveBtn" class="btn primary" style="display: none;">保存</button>
+        <button id="readableTextCancelBtn" class="btn ghost" style="display: none;">キャンセル</button>
+        <button id="readableTextCopyBtn" class="btn secondary">コピー</button>
+        <button id="readableTextCloseBtn2" class="btn ghost">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <main class="container two-col-layout">
+    <article class="panel">
+      <div class="fav-block" style="text-align:right;margin-bottom:1rem;">
+        <button id="favBtn" class="btn small">♡ お気に入り</button>
+        <button id="translateBtn" class="btn small" style="margin-left: 0.5rem;" onclick="showTranslatePopup()">🌍 翻訳</button>
+      </div>
+      <h2 id="recipeTitle">タイトル</h2>
+      <div id="translatedTitle" class="translated-title" style="display: none;"></div>
+      <div class="muted" id="meta">作成日 — / 更新日 —</div>
+      
+      <!-- カテゴリーとタグの表示 -->
+      <div id="categoryAndTags" style="margin: 8px 0;">
+        <div id="categoryDisplay" style="display: none; margin-bottom: 6px;">
+          <span class="category-badge" style="background: #e3f2fd; color: #1976d2; padding: 4px 10px; border-radius: 12px; font-size: 0.85em; font-weight: 500; display: inline-block;">
+            <i class="fas fa-folder" style="margin-right: 4px; font-size: 0.8em;"></i>
+            <span id="categoryText"></span>
+          </span>
+        </div>
+        <div id="tagsDisplay" style="display: none;">
+          <div style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center;">
+            <i class="fas fa-tags" style="color: #7b1fa2; font-size: 0.8em; margin-right: 4px;"></i>
+            <div id="tagsContainer" style="display: flex; flex-wrap: wrap; gap: 4px;"></div>
+          </div>
+        </div>
+      </div>
+      
+      <div id="sourceUrlSection" style="margin: 8px 0; display: none;">
+        <span class="muted">参考URL: </span>
+        <a id="sourceUrlLink" href="#" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: none;">
+          <i class="fas fa-external-link-alt" style="margin-right: 4px; font-size: 0.85em;"></i>
+          <span id="sourceUrlText"></span>
+        </a>
+      </div>
+      <div id="tags" style="margin:8px 0;"></div>
+      
+      <!-- レシピ画像表示エリア -->
+      <div id="recipeImageContainer" class="recipe-image-container" style="display: none; margin: 16px 0;">
+        <img id="recipeImage" src="" alt="レシピ画像" class="recipe-image" />
+      </div>
+      
+      <p id="recipeIntro" class="lead"></p>
+      <div id="notes" style="margin-top:16px;white-space:pre-wrap;"></div>
+    </article>
+
+    <aside class="panel">
+      <h3>材料</h3>
+      <div id="ingredients"><div class="muted">未登録</div></div>
+
+      <h3 style="margin-top:24px;">手順</h3>
+      <ol id="steps"><li class="muted">未登録</li></ol>
+
+      <section class="card" id="analysisSection" style="display:none;">
+        <h3>科学メモ（ベーカーズ％）</h3>
+        <div class="grid">
+          <div>粉合計</div><div><span id="flour_g">–</span> g (100%)</div>
+          <div>加水率</div><div><span id="hydration_bp">–</span>%（水分 <span id="water_g">–</span> g）</div>
+          <div>油脂</div><div><span id="fat_bp">–</span>%（<span id="fat_g">–</span> g）</div>
+          <div>糖</div><div><span id="sugar_bp">–</span>%（<span id="sugar_g">–</span> g）</div>
+          <div>塩</div><div><span id="salt_bp">–</span>%（<span id="salt_g">–</span> g）</div>
+          <div>酵母</div><div><span id="yeast_bp">–</span>%（<span id="yeast_g">–</span> g）</div>
+        </div>
+        <p id="analysisNotes" class="note"></p>
+      </section>
+
+
+    </aside>
+  </main>
+
+  <!-- 翻訳ポップアップ -->
+  <div id="translatePopup" class="translate-popup">
+    <div class="translate-popup-content">
+      <h3>翻訳先言語を選択</h3>
+      <div class="language-buttons">
+        <button class="btn" onclick="startTranslation('fr')">🇫🇷 フランス語</button>
+        <button class="btn" onclick="startTranslation('it')">🇮🇹 イタリア語</button>
+        <button class="btn" onclick="startTranslation('zh')">🇨🇳 中国語</button>
+        <button class="btn" onclick="startTranslation('es')">🇪🇸 スペイン語</button>
+        <button class="btn" onclick="startTranslation('de')">🇩🇪 ドイツ語</button>
+        <button class="btn" onclick="startTranslation('en')">🇺🇸 英語</button>
+      </div>
+      <button class="btn ghost" onclick="closeTranslatePopup()">キャンセル</button>
+    </div>
+  </div>
+
+  <!-- 翻訳中アニメーション -->
+  <div id="translateLoading" class="translate-loading">
+    <div class="translate-loading-content">
+      <div class="loading-icon">🌍</div>
+      <div class="loading-text">翻訳中...</div>
+      <div class="loading-spinner"></div>
+    </div>
+  </div>
+
+  <!-- レシピ化進行状況ポップアップ -->
+  <div id="recipeProgressPopup" class="recipe-progress-popup" style="display: none;">
+    <div class="recipe-progress-content">
+      <div class="progress-icon">🍳</div>
+      <div class="progress-title">レシピ化中...</div>
+      <div class="progress-text" id="progressText">AIがレシピを分析しています</div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <div class="progress-percentage" id="progressPercentage">0%</div>
+    </div>
+  </div>
+
+  <style>
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+
+  <div id="aiModal" class="ai-view-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="aiTitle">
+    <div class="ai-view-modal-content" tabindex="-1">
+      <header class="ai-view-modal-header">
+        <div class="ai-view-modal-title" id="aiTitle">✨ AI レシピ アシスタント</div>
+        <button class="ai-view-modal-close" id="aiClose" aria-label="閉じる">✕</button>
+      </header>
+      <nav class="ai-view-tabs" role="tablist">
+        <button class="ai-tab" role="tab" aria-selected="true" data-tab="advice">提案</button>
+        <button class="ai-tab" role="tab" aria-selected="false" data-tab="temps">温度・時間</button>
+        <button class="ai-tab" role="tab" aria-selected="false" data-tab="hazards">危害要因</button>
+        <button class="ai-tab" role="tab" aria-selected="false" data-tab="wine">ペアリングワイン</button>
+      </nav>
+      <section id="tab-advice" class="ai-chat-container active"></section>
+      <section id="tab-temps" class="ai-chat-container"></section>
+      <section id="tab-hazards" class="ai-chat-container"></section>
+      <section id="tab-wine" class="ai-chat-container"></section>
+      <div class="ai-input-row">
+        <textarea id="aiInput" placeholder="質問や要望を入力…"></textarea>
+        <button class="ai-btn" id="aiSave">レシピ化</button>
+        <button class="ai-btn primary" id="aiSend">送信</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===== Supabase 初期化（既に window.sb があれば流用） =====
+    if (window.supabase && !window.sb) {
+      window.sb = window.supabase.createClient(
+        "https://ctxyawinblwcbkovfsyj.supabase.co",
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN0eHlhd2luYmx3Y2Jrb3Zmc3lqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ5NzE3MzIsImV4cCI6MjA3MDU0NzczMn0.HMMoDl_LPz8uICruD_tzn75eUpU7rp3RZx_N8CEfO1Q",
+        { auth: { storageKey: 'app-main-11-view', autoRefreshToken: true, persistSession: true, detectSessionInUrl: false } }
+      );
+    }
+
+    // ===== 要素参照 =====
+    const btnOpen = document.querySelector('.js-ai-advice');
+    const btnBack = document.querySelector('.js-back');
+    console.log('AIアドバイスボタン要素:', btnOpen);
+    console.log('戻るボタン要素:', btnBack);
+    
+    // ボタンの存在確認
+    if (!btnOpen) {
+      console.error('AIアドバイスボタンが見つかりません');
+    } else {
+      console.log('AIアドバイスボタンが見つかりました:', btnOpen);
+    }
+    const modal = document.getElementById('aiModal');
+    const modalContent = modal.querySelector('.ai-view-modal-content');
+    const btnClose = document.getElementById('aiClose');
+    const tabs = document.querySelectorAll('.ai-tab');
+    const panes = { advice: document.getElementById('tab-advice'), temps: document.getElementById('tab-temps'), hazards: document.getElementById('tab-hazards'), wine: document.getElementById('tab-wine') };
+    const input = document.getElementById('aiInput');
+    const btnSend = document.getElementById('aiSend');
+    const btnSave = document.getElementById('aiSave');
+    // 入力の有効/無効切り替え
+    function setAIInputEnabled(enabled){
+      try{
+        if (input) {
+          input.disabled = !enabled;
+          input.style.opacity = enabled ? '1' : '0.6';
+          input.style.pointerEvents = enabled ? 'auto' : 'none';
+        }
+        if (btnSend) {
+          btnSend.disabled = !enabled;
+          btnSend.style.opacity = enabled ? '1' : '0.6';
+          btnSend.style.pointerEvents = enabled ? 'auto' : 'none';
+        }
+      }catch(_){}
+    }
+
+
+    // ▼▼▼【変更点 1】会話履歴を保存するオブジェクトを追加 ▼▼▼
+    const chatHistories = { advice: [], temps: [], hazards: [], wine: [] };
+
+    // ===== タブ切替（遅延生成対応） =====
+    const tabLoaded = { advice:false, temps:false, hazards:false, wine:false };
+    tabs.forEach(t=>t.addEventListener('click', async ()=>{
+      tabs.forEach(x=>x.setAttribute('aria-selected','false'));
+      t.setAttribute('aria-selected','true');
+      Object.values(panes).forEach(p=>p.classList.remove('active'));
+      panes[t.dataset.tab].classList.add('active');
+      if(!tabLoaded[t.dataset.tab]){ await generateTab(t.dataset.tab); tabLoaded[t.dataset.tab]=true; }
+    }));
+
+    // ===== 開閉（Esc/背景クリック/戻る導線） =====
+    const openModal = ()=>{ 
+      console.log('openModal関数が呼び出されました');
+      modal.style.display='flex'; 
+      document.body.classList.add('modal-open'); 
+      modalContent.focus({preventScroll:true}); 
+    };
+    const closeModalLocal = ()=>{ modal.style.display='none'; document.body.classList.remove('modal-open'); };
+    btnOpen?.addEventListener('click', async ()=>{
+      console.log('AIアドバイスボタンがクリックされました');
+      try {
+        openModal(); 
+        if(!tabLoaded.advice) { 
+          console.log('AIアドバイスタブを生成中...');
+          await generateTab('advice'); 
+          tabLoaded.advice=true; 
+        }
+      } catch (error) {
+        console.error('AIアドバイスボタンクリック時のエラー:', error);
+      }
+    });
+    btnClose?.addEventListener('click', closeModalLocal);
+    modal.addEventListener('click', (e)=>{ if(e.target === modal) closeModalLocal(); });
+    document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && modal.style.display==='flex') closeModalLocal(); });
+    
+    console.log('AIアドバイスボタンのイベントリスナー設定完了');
+
+    // ===== 翻訳機能拡張 =====
+    let enhancedTranslatedData = null;
+
+
+    // 既存の翻訳機能に新機能を統合
+    async function toggleEnhancedLanguageDisplay() {
+      // 既存の翻訳データがあるかチェック
+      if (currentTranslatedData) {
+        // 既存の翻訳表示と元表示を切り替え
+        const ingredientsEl = document.getElementById('ingredients');
+        const stepsEl = document.getElementById('steps');
+        
+        // 現在翻訳表示中かどうかチェック
+        const isTranslatedShowing = ingredientsEl.querySelector('.translated-section');
+        
+        if (isTranslatedShowing) {
+          // 元の表示に戻す - ページをリロード
+          location.reload();
+        } else {
+          // 翻訳版を再表示（元の言語を検出）
+          const detectedLanguage = detectOriginalLanguage();
+          await showTranslatedResult(currentTranslatedData, detectedLanguage);
+          btnToggleLanguage.textContent = '🔄 元の言語に戻す';
+        }
+      }
+    }
+
+    // 元の言語を検出する関数
+    function detectOriginalLanguage() {
+      // 材料名から言語を推定
+      const firstIngredient = currentTranslatedData?.ingredients?.[0]?.item || '';
+      if (firstIngredient.match(/[スペイン語特有の文字]/)) return 'es';
+      if (firstIngredient.match(/[フランス語特有の文字]/)) return 'fr';
+      if (firstIngredient.match(/[イタリア語特有の文字]/)) return 'it';
+      if (firstIngredient.match(/[ドイツ語特有の文字]/)) return 'de';
+      if (firstIngredient.match(/[中国語]/)) return 'zh';
+      // デフォルトは英語
+      return 'en';
+    }
+
+    async function saveEnhancedTranslation() {
+      if (!currentTranslatedData) return;
+
+      try {
+        const params = new URLSearchParams(location.search);
+        const id = params.get('id');
+
+        // 既存の翻訳データを新形式で保存
+        await saveTranslationToDatabase(currentTranslatedData, id);
+        
+        console.log('翻訳を保存しました');
+      } catch (error) {
+        console.error('翻訳保存エラー:', error);
+        throw error;
+      }
+    }
+
+    async function saveTranslationToDatabase(translatedData, recipeId) {
+      // レシピの翻訳情報を保存
+      const recipeUpdateData = {
+        title_translated: translatedData.title,
+        is_translated: true,
+        translation_date: new Date().toISOString()
+      };
+
+      const { error: recipeError } = await sb.from('recipes')
+        .update(recipeUpdateData)
+        .eq('id', recipeId);
+
+      if (recipeError) throw recipeError;
+
+      // 材料の翻訳を保存
+      if (translatedData.ingredients) {
+        for (let i = 0; i < translatedData.ingredients.length; i++) {
+          const ing = translatedData.ingredients[i];
+          const { error: ingError } = await sb.from('recipe_ingredients')
+            .update({
+              item_translated: ing.item,
+              unit_translated: ing.unit
+            })
+            .eq('recipe_id', recipeId)
+            .eq('position', i + 1);
+          
+          if (ingError) console.warn('材料翻訳保存エラー:', ingError);
+        }
+      }
+
+      // 手順の翻訳を保存
+      if (translatedData.steps) {
+        for (let i = 0; i < translatedData.steps.length; i++) {
+          const step = translatedData.steps[i];
+          const { error: stepError } = await sb.from('recipe_steps')
+            .update({
+              instruction_translated: step
+            })
+            .eq('recipe_id', recipeId)
+            .eq('position', i + 1);
+          
+          if (stepError) console.warn('手順翻訳保存エラー:', stepError);
+        }
+      }
+    }
+
+    // ===== 便利関数 =====
+    const md = (s)=>{ try{ return marked.parse(s||''); }catch{ return (s||''); } };
+    
+    // ===== レシピ化進行状況ポップアップ制御 =====
+    function showRecipeProgressPopup() {
+      const popup = document.getElementById('recipeProgressPopup');
+      if (popup) {
+        popup.style.display = 'flex';
+        updateRecipeProgress(0, 'AIがレシピを分析しています...');
+      }
+    }
+    
+    function hideRecipeProgressPopup() {
+      const popup = document.getElementById('recipeProgressPopup');
+      if (popup) {
+        popup.style.display = 'none';
+      }
+    }
+    
+    function updateRecipeProgress(percentage, text) {
+      const progressFill = document.getElementById('progressFill');
+      const progressPercentage = document.getElementById('progressPercentage');
+      const progressText = document.getElementById('progressText');
+      
+      if (progressFill) progressFill.style.width = `${percentage}%`;
+      if (progressPercentage) progressPercentage.textContent = `${percentage}%`;
+      if (progressText) progressText.textContent = text;
+    }
+    const pushMsg = (pane, role, text)=>{ 
+      const el=document.createElement('div'); 
+      el.className=`ai-msg ${role}`; 
+      el.innerHTML = role==='assistant'? md(text): (text||''); 
+      pane.appendChild(el); 
+      
+      // AI応答の場合、生成されたHTMLに折り返しスタイルを強制適用
+      if (role === 'assistant') {
+        setTimeout(() => {
+          // 手順リスト（ol, li）に折り返しスタイルを強制適用
+          const olElements = el.querySelectorAll('ol');
+          olElements.forEach(ol => {
+            ol.style.overflow = 'visible';
+            ol.style.textOverflow = 'unset';
+            ol.style.whiteSpace = 'normal';
+            ol.style.wordWrap = 'break-word';
+            ol.style.wordBreak = 'break-word';
+            ol.style.overflowWrap = 'break-word';
+            ol.style.maxWidth = '100%';
+            ol.style.boxSizing = 'border-box';
+            ol.style.margin = '0.8rem 0';
+            ol.style.paddingLeft = '1.5rem';
+          });
+          
+          const liElements = el.querySelectorAll('ol li');
+          liElements.forEach(li => {
+            li.style.overflow = 'visible';
+            li.style.textOverflow = 'unset';
+            li.style.whiteSpace = 'normal';
+            li.style.wordWrap = 'break-word';
+            li.style.wordBreak = 'break-word';
+            li.style.overflowWrap = 'break-word';
+            li.style.maxWidth = '100%';
+            li.style.boxSizing = 'border-box';
+            li.style.margin = '0.6rem 0';
+            li.style.padding = '0.4rem 0';
+            li.style.lineHeight = '1.7';
+          });
+          
+          // その他の要素にも折り返しスタイルを適用
+          const allElements = el.querySelectorAll('*');
+          allElements.forEach(element => {
+            element.style.overflow = 'visible';
+            element.style.textOverflow = 'unset';
+            element.style.whiteSpace = 'normal';
+            element.style.wordWrap = 'break-word';
+            element.style.wordBreak = 'break-word';
+            element.style.overflowWrap = 'break-word';
+            element.style.maxWidth = '100%';
+            element.style.boxSizing = 'border-box';
+          });
+        }, 50);
+      }
+      
+      // スクロール位置の調整 - すべてのメッセージで一番下にスクロール（タグ選択を妨げないように）
+      setTimeout(() => {
+        pane.scrollTop = pane.scrollHeight;
+      }, 100);
+    };
+    const spinner = ()=>{ const d=document.createElement('div'); d.className='loading'; return d; };
+
+    // ===== レシピ抽出 =====
+    function scrapeRecipe(){
+      const title = document.getElementById('recipeTitle')?.textContent?.trim() || '';
+      const ings = Array.from(document.querySelectorAll('#ingredients tbody tr')).map(tr=>{
+        const tds = tr.querySelectorAll('td');
+        return { item:(tds[0]?.textContent||'').trim(), quantity:(tds[1]?.textContent||'').trim(), unit:(tds[2]?.textContent||'').trim() };
+      });
+      const steps = Array.from(document.querySelectorAll('#steps li')).map(li=> (li.textContent||'').trim()).filter(Boolean);
+      return { title, ings, steps };
+    }
+
+    // ===== タブ別プロンプト =====
+    function buildPrompts(){
+      const { title, ings, steps } = scrapeRecipe();
+      const ingText = ings.map(i=>`- ${i.item} ${i.quantity||''} ${i.unit||''}`).join('\n');
+      const stepText = steps.map((s,i)=> `${i+1}. ${s}`).join('\n');
+      const base = `# ルセット名\n${title||'無題のレシピ'}\n\n## 材料\n${ingText}\n\n## 手順\n${stepText}`;
+      const advice = `あなたはプロ向けの調理科学アドバイザーです。${base}
+
+## 改善提案（要約版）
+
+### 主要な改善点（5個）
+
+各改善点を簡潔に記述してください：
+
+#### 1. [改善項目名]
+- **根拠:** 簡潔な科学的根拠
+- **実装:** 具体的な手順（1-2行）
+- **注意点:** 重要なリスクや注意事項
+
+#### 2. [改善項目名]
+- **根拠:** 簡潔な科学的根拠
+- **実装:** 具体的な手順（1-2行）
+- **注意点:** 重要なリスクや注意事項
+
+#### 3. [改善項目名]
+- **根拠:** 簡潔な科学的根拠
+- **実装:** 具体的な手順（1-2行）
+- **注意点:** 重要なリスクや注意事項
+
+#### 4. [改善項目名]
+- **根拠:** 簡潔な科学的根拠
+- **実装:** 具体的な手順（1-2行）
+- **注意点:** 重要なリスクや注意事項
+
+#### 5. [改善項目名]
+- **根拠:** 簡潔な科学的根拠
+- **実装:** 具体的な手順（1-2行）
+- **注意点:** 重要なリスクや注意事項
+
+### 調理科学のポイント
+
+重要な調理科学の観点を簡潔に箇条書きで：
+- メイラード反応、酵素活性、タンパク質変性など
+- パン/生地系の場合はベーカーズ％の妥当性`;
+      const temps = `あなたはプロの食品安全コンサルタントです。以下のレシピの重要管理点（CCP）における温度と時間を管理するための表を作成してください。\n\n${base}\n\n— 出力仕様 —\n- 必ずMarkdownの表形式で出力してください。\n- 表には「工程」「温度（表面/中心）」「時間」「備考（食品安全上の根拠等）」の列を含めてください。`;
+      const hazards = `以下のレシピに関する危害要因（微生物/アレルゲン/化学・物理）とCCP候補、簡単な管理基準案を箇条書きで。\n\n${base}`;
+      const wine = `あなたはプロのソムリエです。以下のレシピに最適なペアリングワインを3種類提案してください。\n\n${base}\n\n## ペアリングワイン提案\n\n### 1. [ワイン名・産地・年]（[色・タイプ]）\n- **選定理由:** 料理の特徴とワインの特性の相性\n- **味わい:** ワインの味わいの特徴\n- **セパージュ:** 使用されているブドウ品種\n- **検証:** なぜこの組み合わせが良いのかの科学的・感覚的根拠\n\n### 2. [ワイン名・産地・年]（[色・タイプ]）\n- **選定理由:** 料理の特徴とワインの特性の相性\n- **味わい:** ワインの味わいの特徴\n- **セパージュ:** 使用されているブドウ品種\n- **検証:** なぜこの組み合わせが良いのかの科学的・感覚的根拠\n\n### 3. [ワイン名・産地・年]（[色・タイプ]）\n- **選定理由:** 料理の特徴とワインの特性の相性\n- **味わい:** ワインの味わいの特徴\n- **セパージュ:** 使用されているブドウ品種\n- **検証:** なぜこの組み合わせが良いのかの科学的・感覚的根拠\n\n## ペアリングの基本原則\n\n- **相補性:** 料理とワインの味のバランス\n- **相乗効果:** 料理とワインが互いを引き立てる効果\n- **地域性:** 同じ地域の料理とワインの相性\n- **温度:** 適切な飲用温度の提案`;
+      return { advice, temps, hazards, wine };
+    }
+
+    // ===== 直接Groq API呼び出し =====
+    async function invokeGroq(prompt, responseSchema){
+       const load = spinner();
+       const activePane = document.querySelector('.ai-chat-container.active') || panes.advice;
+       activePane.appendChild(load);
+       try{
+         await new Promise(resolve => setTimeout(resolve, 1000));
+
+         const { data, error } = await sb.functions.invoke('call-groq-api', {
+           body: {
+             prompt,
+             model: 'llama-3.1-8b-instant',
+             maxTokens: 2048,
+             temperature: 0.7
+           }
+         });
+
+         if (error || !data?.success) {
+           console.error('Groq API エラー:', error || data);
+           throw new Error(`Groq API エラー: ${data?.error || 'unknown'}`);
+         }
+
+         const content = data.content;
+         console.log('[AI raw]', content);
+
+         if (!content) {
+           throw new Error('Groq APIから有効なレスポンスを取得できませんでした');
+         }
+
+         const jsonMatch = content.match(/\{[\s\S]*\}/);
+         if (jsonMatch) {
+           try {
+             const jsonData = JSON.parse(jsonMatch[0]);
+             return jsonData;
+           } catch (parseError) {
+             console.error('JSON解析エラー:', parseError);
+             return { text: content };
+           }
+         }
+
+         return { text: content };
+       }catch(e){ 
+         pushMsg(activePane,'assistant',`エラー: ${e.message}`); 
+         return null; 
+       }
+       finally{ load.remove(); }
+     }
+
+    // ===== 応答テキスト抽出（Groq / OpenAI 両対応） =====
+    function extractLLMText(r){
+      try{
+        if (!r) return '';
+        if (typeof r === 'string') return r;
+        if (r.text) return r.text;
+        if (r.output_text) return r.output_text;
+        if (r.message && typeof r.message.content === 'string') return r.message.content;
+        if (Array.isArray(r.choices) && r.choices.length){
+          const ch = r.choices[0];
+          return (ch.message && ch.message.content) || ch.text || '';
+        }
+        if (Array.isArray(r.candidates) && r.candidates.length){
+          const cand = r.candidates[0];
+          if (cand && cand.content && Array.isArray(cand.content.parts)){
+            return cand.content.parts.map(p => (p && p.text) ? p.text : '').join('\n').trim();
+          }
+        }
+        if (r.content && Array.isArray(r.content.parts)){
+            return r.content.parts.map(p => p.text || '').join('\n').trim();
+        }
+        try { return JSON.stringify(r); } catch { return ''; }
+      }catch(e){
+        console.error('extractLLMText error', e, r);
+        return '';
+      }
+    }
+    
+    // ===== レシピ表示用ヘルパ =====
+    function renderRecipeCard(pane, recipeObj, sourceLabel = 'AI提案'){
+      try{
+        const title = recipeObj.title || '無題のレシピ';
+        const desc = recipeObj.description || recipeObj.notes || '';
+        const servings = recipeObj.servings ? String(recipeObj.servings) : '';
+        const ings = Array.isArray(recipeObj.ingredients) ? recipeObj.ingredients : [];
+        const steps = Array.isArray(recipeObj.steps) ? recipeObj.steps : [];
+
+        const ingTable = `
+          <div style="overflow-x: auto; width: 100%; margin-top:8px;">
+            <table class="table">
+              <thead><tr><th>番号</th><th>材料名</th><th>分量</th><th>単位</th></tr></thead>
+              <tbody>
+                ${ings.map((it,idx)=>`<tr><td>${idx+1}</td><td>${(it.item||it.name||'').toString()}</td><td>${(it.quantity||'').toString()}</td><td>${(it.unit||'').toString()}</td></tr>`).join('')}
+              </tbody>
+            </table>
+          </div>`;
+        const stepList = `<ol style="margin-top:8px; overflow: visible !important; text-overflow: unset !important; white-space: normal !important; word-wrap: break-word !important; word-break: break-word !important; overflow-wrap: break-word !important; max-width: 100% !important; box-sizing: border-box !important;">${steps.map(step => {
+          // 文字列の場合
+          if (typeof step === 'string') {
+            return `<li style="overflow: visible !important; text-overflow: unset !important; white-space: normal !important; word-wrap: break-word !important; word-break: break-word !important; overflow-wrap: break-word !important; max-width: 100% !important; box-sizing: border-box !important; margin: 0.6rem 0 !important; padding: 0.4rem 0 !important; line-height: 1.7 !important;">${step}</li>`;
+          }
+          // オブジェクトの場合（翻訳データ形式）
+          if (typeof step === 'object' && step.text) {
+            return `<li style="overflow: visible !important; text-overflow: unset !important; white-space: normal !important; word-wrap: break-word !important; word-break: break-word !important; overflow-wrap: break-word !important; max-width: 100% !important; box-sizing: border-box !important; margin: 0.6rem 0 !important; padding: 0.4rem 0 !important; line-height: 1.7 !important;">${step.text}</li>`;
+          }
+          // その他の場合
+          return `<li style="overflow: visible !important; text-overflow: unset !important; white-space: normal !important; word-wrap: break-word !important; word-break: break-word !important; overflow-wrap: break-word !important; max-width: 100% !important; box-sizing: border-box !important; margin: 0.6rem 0 !important; padding: 0.4rem 0 !important; line-height: 1.7 !important;">${(step || '').toString()}</li>`;
+        }).join('')}</ol>`;
+
+        const wrap = document.createElement('div');
+        wrap.className = 'card';
+        wrap.style.padding = '12px';
+        wrap.innerHTML = `
+          <div class="muted" style="margin-bottom:4px;">${sourceLabel}</div>
+          <h4 style="margin:4px 0;">${title}</h4>
+          ${servings ? `<div style="margin:4px 0;">人数: ${servings}</div>` : ''}
+          ${desc ? `<p style="white-space:pre-wrap;">${desc}</p>` : ''}
+          <h5 style="margin-top:8px;">材料</h5>
+          ${ingTable}
+          <h5 style="margin-top:12px;">手順</h5>
+          ${stepList}
+        `;
+        pane.appendChild(wrap);
+
+        const btnRow = document.createElement('div');
+        btnRow.style.display = 'flex';
+        btnRow.style.gap = '8px';
+        btnRow.style.marginTop = '8px';
+        btnRow.style.justifyContent = 'flex-start';
+        btnRow.style.alignItems = 'flex-start';
+        btnRow.style.flexWrap = 'wrap';
+        const btnApply = document.createElement('button');
+        btnApply.className = 'ai-btn';
+        btnApply.textContent = '反映';
+        btnApply.style.flex = '1';
+        btnApply.style.minWidth = '80px';
+        btnApply.style.maxWidth = '120px';
+        btnApply.style.padding = '8px 16px';
+        btnApply.style.fontSize = '14px';
+        btnApply.style.borderRadius = '6px';
+        btnApply.style.border = '1px solid #d1d5db';
+        btnApply.style.backgroundColor = '#ffffff';
+        btnApply.style.color = '#374151';
+        btnApply.style.cursor = 'pointer';
+        btnApply.style.whiteSpace = 'normal';
+        btnApply.style.overflow = 'visible';
+        btnApply.style.textOverflow = 'unset';
+        btnApply.style.wordWrap = 'break-word';
+        btnApply.style.wordBreak = 'break-word';
+        btnApply.style.textAlign = 'center';
+        btnApply.addEventListener('mouseenter', () => {
+          btnApply.style.backgroundColor = '#f9fafb';
+          btnApply.style.borderColor = '#9ca3af';
+        });
+        btnApply.addEventListener('mouseleave', () => {
+          btnApply.style.backgroundColor = '#ffffff';
+          btnApply.style.borderColor = '#d1d5db';
+        });
+        btnApply.addEventListener('click', ()=> applyRecipeToView(recipeObj));
+
+        const btnNew = document.createElement('button');
+        btnNew.className = 'ai-btn primary';
+        btnNew.textContent = '新規';
+        btnNew.style.flex = '1';
+        btnNew.style.minWidth = '80px';
+        btnNew.style.maxWidth = '120px';
+        btnNew.style.padding = '8px 16px';
+        btnNew.style.fontSize = '14px';
+        btnNew.style.borderRadius = '6px';
+        btnNew.style.border = '1px solid #3b82f6';
+        btnNew.style.backgroundColor = '#3b82f6';
+        btnNew.style.color = '#ffffff';
+        btnNew.style.cursor = 'pointer';
+        btnNew.style.whiteSpace = 'normal';
+        btnNew.style.overflow = 'visible';
+        btnNew.style.textOverflow = 'unset';
+        btnNew.style.wordWrap = 'break-word';
+        btnNew.style.wordBreak = 'break-word';
+        btnNew.style.textAlign = 'center';
+        btnNew.addEventListener('mouseenter', () => {
+          btnNew.style.backgroundColor = '#2563eb';
+          btnNew.style.borderColor = '#2563eb';
+        });
+        btnNew.addEventListener('mouseleave', () => {
+          btnNew.style.backgroundColor = '#3b82f6';
+          btnNew.style.borderColor = '#3b82f6';
+        });
+        btnNew.addEventListener('click', ()=>{
+          try {
+            // 2系統で受け渡し（URLパラメータ + localStorage フォールバック）
+            localStorage.setItem('ai_generated_recipe', JSON.stringify(recipeObj));
+            const recipeData = encodeURIComponent(JSON.stringify(recipeObj));
+            window.open(`recipe_edit.html?newRecipe=${recipeData}`, '_blank');
+          } catch (_) {
+            // パラメータにフォールバック
+            const recipeData = encodeURIComponent(JSON.stringify(recipeObj));
+            window.open(`recipe_edit.html?newRecipe=${recipeData}`, '_blank');
+          }
+        });
+        const btnCancel = document.createElement('button');
+        btnCancel.className = 'ai-btn';
+        btnCancel.textContent = 'キャンセル';
+        btnCancel.style.flex = '1';
+        btnCancel.style.minWidth = '80px';
+        btnCancel.style.maxWidth = '120px';
+        btnCancel.style.padding = '8px 16px';
+        btnCancel.style.fontSize = '14px';
+        btnCancel.style.borderRadius = '6px';
+        btnCancel.style.border = '1px solid #d1d5db';
+        btnCancel.style.backgroundColor = '#ffffff';
+        btnCancel.style.color = '#374151';
+        btnCancel.style.cursor = 'pointer';
+        btnCancel.style.whiteSpace = 'normal';
+        btnCancel.style.overflow = 'visible';
+        btnCancel.style.textOverflow = 'unset';
+        btnCancel.style.wordWrap = 'break-word';
+        btnCancel.style.wordBreak = 'break-word';
+        btnCancel.style.textAlign = 'center';
+        btnCancel.addEventListener('mouseenter', () => {
+          btnCancel.style.backgroundColor = '#f9fafb';
+          btnCancel.style.borderColor = '#9ca3af';
+        });
+        btnCancel.addEventListener('mouseleave', () => {
+          btnCancel.style.backgroundColor = '#ffffff';
+          btnCancel.style.borderColor = '#d1d5db';
+        });
+        btnCancel.addEventListener('click', ()=>{
+          // キャンセル: ボタン行を無効化してメッセージ表示
+          btnApply.disabled = true;
+          btnNew.disabled = true;
+          btnCancel.disabled = true;
+          const note = document.createElement('div');
+          note.className = 'muted';
+          note.style.marginTop = '6px';
+          note.textContent = 'キャンセルしました';
+          pane.appendChild(note);
+        });
+        btnRow.appendChild(btnApply);
+        btnRow.appendChild(btnNew);
+        btnRow.appendChild(btnCancel);
+        pane.appendChild(btnRow);
+        
+        // レシピカードが表示されたら、一番下にスクロール（タグ選択を妨げないように）
+        setTimeout(() => {
+          const pane = document.querySelector('.ai-chat-container.active');
+          if (pane) {
+            pane.scrollTop = pane.scrollHeight;
+          }
+        }, 100);
+      }catch(e){
+        console.error('renderRecipeCard error', e);
+      }
+    }
+
+    function applyRecipeToView(recipe){
+      try{
+        console.log('applyRecipeToView called with:', recipe);
+        const ingEl = document.getElementById('ingredients');
+        const stepsEl = document.getElementById('steps');
+        const titleEl = document.getElementById('recipeTitle');
+        const notesEl = document.getElementById('notes');
+        console.log('stepsEl found:', !!stepsEl);
+        if (titleEl && recipe.title) {
+          // AI創作レシピのアイコンを追加
+          const aiIcon = recipe.is_ai_generated ? '<i class="fas fa-robot ai-generated-icon" title="AI創作レシピ"></i>' : '';
+          titleEl.innerHTML = `${recipe.title}${aiIcon}`;
+        }
+        if (notesEl && (recipe.description || recipe.notes)) notesEl.textContent = recipe.description || recipe.notes;
+        const ings = Array.isArray(recipe.ingredients) ? recipe.ingredients : [];
+        const cols = ['番号','材料名','分量','単位'];
+        const thead = `<thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead>`;
+        const tbody = `<tbody>${ings.map((it,idx)=>`<tr><td>${idx+1}</td><td>${(it.item||it.name||'')}</td><td>${it.quantity||''}</td><td>${it.unit||''}</td></tr>`).join('')}</tbody>`;
+        ingEl.innerHTML = `<div style="overflow-x: auto; width: 100%;"><table class="table">${thead}${tbody}</table></div>`;
+        const steps = Array.isArray(recipe.steps) ? recipe.steps : [];
+        console.log('手順データ:', steps);
+        if (steps.length > 0) {
+          const stepsHTML = steps.map(step => {
+            // 文字列の場合
+            if (typeof step === 'string') {
+              return `<li>${step}</li>`;
+            }
+            // オブジェクトの場合（翻訳データ形式）
+            if (typeof step === 'object' && step.text) {
+              return `<li>${step.text}</li>`;
+            }
+            // その他の場合
+            return `<li>${(step || '').toString()}</li>`;
+          }).join('');
+          console.log('手順HTML:', stepsHTML);
+          stepsEl.innerHTML = stepsHTML;
+        } else {
+          stepsEl.innerHTML = '<li class="muted">未登録</li>';
+        }
+      }catch(e){ console.error('applyRecipeToView error', e); }
+    }
+
+    // ===== タブ内容生成（必要時に呼び出し） =====
+    async function generateTab(kind){
+      console.log(`generateTab関数が呼び出されました: ${kind}`);
+      try {
+        const prompts = buildPrompts();
+        const pane = panes[kind];
+        const basePrompt = prompts[kind];
+        let promptToSend = basePrompt;
+        console.log(`${kind}タブのプロンプトを送信中...`);
+        const r = await invokeGroq(promptToSend);
+        const t = extractLLMText(r) || '（結果なし）';
+        console.log(`${kind}タブの生成完了`);
+      // JSONを人間向けカード表示
+      const jsonMatchForView = t && t.match(/\{[\s\S]*\}/);
+      if (jsonMatchForView) {
+        try {
+          const obj = JSON.parse(jsonMatchForView[0]);
+          const recipeObj = obj.recipe || obj;
+          renderRecipeCard(pane, recipeObj, 'AI新規レシピ');
+          if (obj.analysis) {
+            const ana = document.createElement('div');
+            ana.className = 'card';
+            ana.style.padding = '12px';
+            ana.style.marginTop = '8px';
+            ana.innerHTML = `<h5>考察</h5><p style="white-space:pre-wrap;">${obj.analysis}</p>`;
+            pane.appendChild(ana);
+          }
+        } catch (_) {
+          pushMsg(pane, 'assistant', t);
+        }
+      } else {
+        pushMsg(pane, 'assistant', t);
+      }
+      chatHistories[kind].push({ role: 'assistant', content: t });
+      } catch (error) {
+        console.error(`generateTab関数でエラーが発生しました (${kind}):`, error);
+        pushMsg(pane, 'assistant', `エラーが発生しました: ${error.message}`);
+      }
+    }
+
+    // ▼▼▼ 会話履歴を考慮してAIに質問するよう修正 ▼▼▼
+    btnSend.addEventListener('click', async ()=>{
+      const q = input.value.trim(); if(!q) return;
+
+      const activeTabEl = document.querySelector('.ai-tab[aria-selected="true"]');
+      const kind = activeTabEl.dataset.tab;
+      const pane = panes[kind];
+      const history = chatHistories[kind];
+      
+      pushMsg(pane,'user',q);
+      history.push({ role: 'user', content: q });
+      input.value='';
+
+      // ステータス表示開始
+      showStatusPopup('AI分析中...', 'AIが回答を生成しています', 'loading');
+
+      try {
+        setAIInputEnabled(false);
+        const historyText = history.map(msg => {
+            return `${msg.role === 'user' ? 'ユーザー' : 'アシスタント'}:\n${msg.content}`;
+        }).join('\n\n');
+
+        const initialPrompt = buildPrompts()[kind];
+        const fullPrompt = `${initialPrompt}\n\n---\n上記は最初の指示です。以下はそれ以降の会話履歴です。文脈を踏まえて応答を続けてください。\n\n${historyText}`;
+
+        const r = await invokeGroq(fullPrompt);
+        const t = extractLLMText(r) || '（結果なし）';
+        
+        pushMsg(pane,'assistant',t);
+        history.push({ role: 'assistant', content: t });
+        
+        // ステータス表示完了
+        updateStatusPopup('完了', 'AI回答を生成しました', 'success');
+        setTimeout(hideStatusPopup, 1500);
+        
+      } catch (error) {
+        console.error('AI回答生成エラー:', error);
+        updateStatusPopup('エラー', 'AI回答の生成に失敗しました', 'error');
+        setTimeout(hideStatusPopup, 3000);
+      } finally {
+        setAIInputEnabled(true);
+        if (input) input.value = '';
+      }
+    });
+
+    input.addEventListener('keydown', (e)=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); btnSend.click(); }});
+
+    // ===== ステータスポップアップ制御 =====
+    function showStatusPopup(title, message, type = 'loading') {
+      const popup = document.getElementById('statusPopup');
+      const titleEl = popup.querySelector('.status-title');
+      const messageEl = popup.querySelector('.status-message');
+      const spinnerEl = popup.querySelector('.spinner');
+      
+      titleEl.textContent = title;
+      messageEl.textContent = message;
+      
+      // クラスをリセット
+      popup.className = 'status-popup';
+      if (type !== 'loading') {
+        popup.classList.add(type);
+        // 成功・エラー時はスピナーを非表示
+        spinnerEl.style.display = 'none';
+      } else {
+        spinnerEl.style.display = 'block';
+      }
+      
+      popup.style.display = 'flex';
+    }
+    
+    function hideStatusPopup() {
+      const popup = document.getElementById('statusPopup');
+      popup.style.display = 'none';
+    }
+    
+    function updateStatusPopup(title, message, type = 'loading') {
+      const popup = document.getElementById('statusPopup');
+      const titleEl = popup.querySelector('.status-title');
+      const messageEl = popup.querySelector('.status-message');
+      const spinnerEl = popup.querySelector('.spinner');
+      
+      titleEl.textContent = title;
+      messageEl.textContent = message;
+      
+      // クラスを更新
+      popup.className = 'status-popup';
+      if (type !== 'loading') {
+        popup.classList.add(type);
+        spinnerEl.style.display = 'none';
+      } else {
+        spinnerEl.style.display = 'block';
+      }
+    }
+
+
+    // ▼▼▼【ここから元に戻した箇所】▼▼▼
+    // ===== 新規レシピ化（JSON + 単位正規化） =====
+    btnSave.addEventListener('click', async ()=>{
+      // 進行状況ポップアップを表示
+      showRecipeProgressPopup();
+      
+      try {
+        updateRecipeProgress(10, 'レシピデータを収集中...');
+        
+        const schema = { type:"OBJECT", properties:{ title:{type:"STRING"}, category:{type:"STRING"}, tags:{type:"ARRAY",items:{type:"STRING"}}, notes:{type:"STRING"}, ingredients:{type:"ARRAY", items:{type:"OBJECT", properties:{ item:{type:"STRING"}, quantity:{type:"STRING"}, unit:{type:"STRING"} }, required:["item"]}}, steps:{type:"ARRAY",items:{type:"STRING"}} }, required:["title","category","tags","notes","ingredients","steps"] };
+        
+        // 新規レシピ化専用のプロンプトを作成
+        const { title, ings, steps } = scrapeRecipe();
+        const ingText = ings.map(i=>`- ${i.item} ${i.quantity||''} ${i.unit||''}`).join('\n');
+        const stepText = steps.map((s,i)=> `${i+1}. ${s}`).join('\n');
+        
+        updateRecipeProgress(30, 'AIにレシピ化を依頼中...');
+      
+      const recipePrompt = `以下のレシピを基に、改善された新レシピを作成してください：
+
+# レシピ名
+${title||'無題のレシピ'}
+
+## 材料
+${ingText}
+
+## 手順
+${stepText}
+
+## 出力仕様
+1. 上記レシピを改善し、新しいレシピを作成してください
+2. 材料はg/mlを基本単位とし、単位省略不可
+3. 同義単位は変換してください（tsp=5ml, tbsp=15ml, 小さじ=5ml, 大さじ=15ml）
+4. 以下のJSON形式でのみ回答してください（マークダウン記号は使用しない）：
+
+{
+  "title": "改善されたレシピ名",
+  "category": "カテゴリ",
+  "tags": ["タグ1", "タグ2"],
+  "notes": "レシピの説明やコツ",
+  "ingredients": [
+    {"item": "材料名", "quantity": "分量", "unit": "単位"}
+  ],
+  "steps": ["手順1", "手順2"]
+}`;
+
+      // 会話履歴（提案タブ）を考慮
+      let promptWithHistory = recipePrompt;
+      if (chatHistories.advice && chatHistories.advice.length){
+        const historyText = chatHistories.advice.map(m=>`${m.role==='user'?'ユーザー':'アシスタント'}:\n${m.content}`).join('\n\n');
+        promptWithHistory = `${recipePrompt}\n\n---\n以下はこれまでの会話履歴です。置き換え依頼や条件を必ず考慮して出力してください。\n\n${historyText}\n\n---\n出力は次のJSON形式：\n{\n  "recipe": {"title":"…","description":"…","servings":"…","ingredients":[{"item":"…","quantity":"…","unit":"…"}],"steps":["…","…"],"notes":"…"},\n  "analysis": "置き換えの理由・味・質感・安全の考察"\n}`;
+      }
+      updateRecipeProgress(50, 'AIがレシピを生成中...');
+      
+      const r = await invokeGroq(promptWithHistory, schema);
+      const jsonText = extractLLMText(r);
+      if (!jsonText){ alert('JSONを取得できませんでした。'); return; }
+      
+      updateRecipeProgress(70, 'レシピデータを処理中...');
+      
+      try{
+        const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+        const cleanJsonText = jsonMatch ? jsonMatch[0] : jsonText;
+        const parsed = JSON.parse(cleanJsonText);
+        const obj = parsed.recipe || parsed;
+        // 単位の軽い正規化（スプーン換算）
+        const unitMap = { 'tsp':'ml', 'tbsp':'ml', '小さじ':'ml', '大さじ':'ml' };
+        const toVol = (q,u)=>{ const n=Number(q); if(!Number.isFinite(n)) return q; if(u==='tsp'||u==='小さじ') return n*5; if(u==='tbsp'||u==='大さじ') return n*15; return n; };
+        obj.ingredients = (obj.ingredients||[]).map(it=>{ const u=(it.unit||'').toLowerCase(); if(unitMap[u]) return { ...it, quantity:String(toVol(it.quantity,u)), unit:'ml' }; return it; });
+        
+        updateRecipeProgress(90, 'レシピカードを表示中...');
+        
+        // 同じチャットライン（提案タブ）に人間向けカードで表示し、反映/編集ボタンを提供
+        renderRecipeCard(panes.advice, obj, '新規レシピ化（AI）');
+        if (parsed.analysis) {
+          const ana = document.createElement('div');
+          ana.className = 'card';
+          ana.style.padding = '12px';
+          ana.style.marginTop = '8px';
+          ana.innerHTML = `<h5>考察</h5><p style="white-space:pre-wrap;">${parsed.analysis}</p>`;
+          panes.advice.appendChild(ana);
+        }
+        localStorage.setItem('ai_generated_recipe', JSON.stringify(obj));
+        
+        updateRecipeProgress(100, 'レシピ化完了！');
+        
+        // 完了後少し待ってからポップアップを閉じる
+        setTimeout(() => {
+          hideRecipeProgressPopup();
+        }, 1000);
+        
+      }catch(e){
+        console.error('レシピ化エラー:', e);
+        updateRecipeProgress(0, `エラー: ${e.message}`);
+        pushMsg(panes.advice, 'assistant', `エラー: ${e.message}`);
+        
+        // エラー時も少し待ってからポップアップを閉じる
+        setTimeout(() => {
+          hideRecipeProgressPopup();
+        }, 2000);
+        console.error('JSON解析エラー:', e, '元のテキスト:', jsonText);
+        alert('JSONの解析に失敗: '+ e.message + '\n\n取得されたテキスト: ' + jsonText.substring(0, 200) + '...');
+      }
+      }catch(e){
+        console.error('レシピ化全体のエラー:', e);
+        updateRecipeProgress(0, `エラー: ${e.message}`);
+        pushMsg(panes.advice, 'assistant', `エラー: ${e.message}`);
+        
+        // エラー時も少し待ってからポップアップを閉じる
+        setTimeout(() => {
+          hideRecipeProgressPopup();
+        }, 2000);
+      }
+    });
+    // ▲▲▲【ここまで元に戻した箇所】▲▲▲
+  </script>
+
+<script>
+// ===== レシピ読み込み（URLの id から取得して表示） =====
+(function(){
+  try{
+    const params = new URLSearchParams(location.search);
+    const id = params.get('id');
+    if(!id){
+      alert('レシピIDがありません'); location.href='../index.html'; return;
+    }
+
+    if(!window.sb && window.supabase){
+      window.sb = window.supabase.createClient(
+        "https://ctxyawinblwcbkovfsyj.supabase.co",
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN0eHlhd2luYmx3Y2Jrb3Zmc3lqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ5NzE3MzIsImV4cCI6MjA3MDU0NzczMn0.HMMoDl_LPz8uICruD_tzn75eUpU7rp3RZx_N8CEfO1Q"
+      );
+    }
+    if(!window.sb){ console.error('Supabase not initialized'); return; }
+    const sb = window.sb;
+    
+    // 言語コードから国旗を取得する関数
+    const getFlagEmoji = (languageCode) => {
+      const flagMap = {
+        'fr': '🇫🇷', // フランス
+        'it': '🇮🇹', // イタリア
+        'ja': '🇯🇵', // 日本
+        'zh': '🇨🇳', // 中国
+        'es': '🇪🇸', // スペイン
+        'de': '🇩🇪', // ドイツ
+        'en': '🇺🇸'  // アメリカ（英語）
+      };
+      return flagMap[languageCode] || '🌐';
+    };
+
+    const titleEl = document.getElementById('recipeTitle');
+    const metaEl  = document.getElementById('meta');
+    const tagsEl  = document.getElementById('tags');
+    const notesEl = document.getElementById('notes');
+    const ingEl   = document.getElementById('ingredients');
+    const stepsEl = document.getElementById('steps');
+    const btnEdit   = document.querySelector('.js-edit');
+    const btnDelete = document.querySelector('.js-delete');
+    const btnBack   = document.querySelector('.js-back');
+    const favBtn    = document.getElementById('favBtn');
+
+    console.log('戻るボタン要素:', btnBack);
+    console.log('戻るボタンが存在するか:', !!btnBack);
+    console.log('戻るボタンのクラス:', btnBack?.className);
+    console.log('戻るボタンのテキスト:', btnBack?.textContent);
+
+    btnEdit?.addEventListener('click', ()=>{ location.href = `recipe_edit.html?id=${encodeURIComponent(id)}`; });
+    
+    // 戻るボタンのイベントリスナーを確実に設定
+    if (btnBack) {
+      btnBack.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('戻るボタンがクリックされました');
+        window.location.href = '../index.html';
+      };
+      console.log('戻るボタンのイベントリスナーを設定しました');
+    } else {
+      console.error('戻るボタンが見つかりません');
+    }
+    btnDelete?.addEventListener('click', async ()=>{
+      if(!confirm('このレシピを削除しますか？（材料・手順は残る場合があります）')) return;
+      try{
+        // 削除前に現在のレシピのカテゴリーとタグを取得
+        const { data: currentRecipe } = await sb.from('recipes').select('category, tags').eq('id', id).single();
+        const deletedCategory = currentRecipe?.category;
+        const deletedTags = Array.isArray(currentRecipe?.tags) ? currentRecipe.tags : [];
+        
+        // レシピを削除
+        await sb.from('recipes').delete().eq('id', id);
+        
+        // カスタムカテゴリーの自動削除チェック
+        if (deletedCategory) {
+          await cleanupUnusedCategory(deletedCategory);
+        }
+        
+        // タグの自動削除チェック
+        if (deletedTags.length > 0) {
+          await cleanupUnusedTags(deletedTags);
+        }
+        
+        alert('削除しました'); 
+        location.href = '../index.html';
+      }catch(e){ 
+        alert('削除に失敗: ' + (e.message||e)); 
+      }
+    });
+    
+    // 未使用カテゴリーの削除関数
+    async function cleanupUnusedCategory(categoryName) {
+      try {
+        console.log('カテゴリー使用状況をチェック中:', categoryName);
+        
+        // 基本カテゴリーは削除しない
+        const basicCategories = [
+          'すべて', 'アミューズ', '前菜', 'ソース', 'スープ', 'パスタ', 
+          '魚料理', '肉料理', 'メイン', 'デザート', 'パン', 'その他'
+        ];
+        
+        if (basicCategories.includes(categoryName)) {
+          console.log('基本カテゴリーなので削除をスキップ:', categoryName);
+          return;
+        }
+        
+        // 同じカテゴリーを使用している他のレシピがあるかチェック
+        const { data: recipesWithCategory, error: checkError } = await sb
+          .from('recipes')
+          .select('id')
+          .eq('category', categoryName);
+        
+        if (checkError) {
+          console.error('カテゴリー使用状況チェックエラー:', checkError);
+          return;
+        }
+        
+        // 使用しているレシピが0件の場合、categoriesテーブルからも削除
+        if (recipesWithCategory.length === 0) {
+          console.log('未使用カテゴリーを削除中:', categoryName);
+          
+          const { error: deleteError } = await sb
+            .from('categories')
+            .delete()
+            .eq('name', categoryName);
+          
+          if (deleteError) {
+            console.error('カテゴリー削除エラー:', deleteError);
+          } else {
+            console.log('未使用カテゴリーを削除しました:', categoryName);
+            
+            // index.htmlに未使用カテゴリー削除の通知を送る
+            localStorage.setItem('categoryDeleted', JSON.stringify({
+              name: categoryName,
+              timestamp: Date.now()
+            }));
+          }
+        } else {
+          console.log('カテゴリーは他のレシピで使用中:', categoryName, '使用数:', recipesWithCategory.length);
+        }
+        
+      } catch (error) {
+        console.error('カテゴリークリーンアップエラー:', error);
+      }
+    }
+
+    // 未使用タグの削除関数
+    async function cleanupUnusedTags(tagsToCheck) {
+      if (!Array.isArray(tagsToCheck) || tagsToCheck.length === 0) {
+        return;
+      }
+      
+      try {
+        console.log('未使用タグのクリーンアップを開始:', tagsToCheck);
+        
+        // 全レシピのタグを取得
+        const { data: allRecipes, error: recipesError } = await sb
+          .from('recipes')
+          .select('tags')
+          .not('tags', 'is', null);
+        
+        if (recipesError) {
+          console.error('レシピ取得エラー:', recipesError);
+          return;
+        }
+        
+        // 使用されているタグを集計
+        const usedTags = new Set();
+        allRecipes.forEach(recipe => {
+          if (Array.isArray(recipe.tags)) {
+            recipe.tags.forEach(tag => usedTags.add(tag));
+          }
+        });
+        
+        // チェック対象のタグで使用されていないものを削除
+        for (const tagName of tagsToCheck) {
+          if (!usedTags.has(tagName)) {
+            console.log('未使用タグを削除:', tagName);
+            
+            const { error: deleteError } = await sb
+              .from('tags')
+              .delete()
+              .eq('name', tagName);
+            
+            if (deleteError) {
+              console.error('タグ削除エラー:', tagName, deleteError);
+            } else {
+              console.log('未使用タグ削除成功:', tagName);
+            }
+          }
+        }
+        
+      } catch (error) {
+        console.error('未使用タグクリーンアップエラー:', error);
+      }
+    }
+
+    function getClientId(){
+      let cid = localStorage.getItem('client_id');
+      if(!cid){ cid = (crypto?.randomUUID?.() || String(Math.random()).slice(2)); localStorage.setItem('client_id', cid); }
+      return cid;
+    }
+    async function refreshFavState(){
+      try{
+        const { data } = await sb.from('favorites').select('id').eq('recipe_id', id).eq('client_id', getClientId()).limit(1);
+        const on = !!(data && data.length);
+        if(favBtn){
+          favBtn.textContent = on ? '♥ お気に入り解除' : '♡ お気に入り';
+          favBtn.dataset.active = on ? '1' : '0';
+        }
+      }catch(_){}
+    }
+    favBtn?.addEventListener('click', async ()=>{
+      try{
+        const cid = getClientId();
+        const { data } = await sb.from('favorites').select('id').eq('recipe_id', id).eq('client_id', cid).limit(1);
+        if(data && data.length){
+          await sb.from('favorites').delete().eq('id', data[0].id);
+        }else{
+          await sb.from('favorites').insert({ recipe_id: id, client_id: cid });
+        }
+        await refreshFavState();
+      }catch(e){ alert('お気に入り操作に失敗: ' + (e.message||e)); }
+    });
+
+    // esc関数は utils.js の escapeHtml を使用
+
+    // HTML形式のレシピを読み込む関数
+    async function loadHTMLFormatRecipe(recipe) {
+      console.log('HTML形式レシピの詳細読み込み:', recipe);
+      
+      // タイトルとメタ情報を設定
+      // AI創作レシピのアイコンを追加
+      const aiIcon = recipe.is_ai_generated ? '<i class="fas fa-robot ai-generated-icon" title="AI創作レシピ"></i>' : '';
+      titleEl.innerHTML = `${recipe.title || '無題のレシピ'}${aiIcon}`;
+      const dt = recipe.updated_at || recipe.created_at;
+      metaEl.textContent = dt ? `更新: ${new Date(dt).toLocaleString()}` : '';
+      
+      // カテゴリーとタグの表示
+      const categoryDisplay = document.getElementById('categoryDisplay');
+      const categoryText = document.getElementById('categoryText');
+      const tagsDisplay = document.getElementById('tagsDisplay');
+      const tagsContainer = document.getElementById('tagsContainer');
+      
+      if (recipe.category && recipe.category.trim()) {
+        categoryText.textContent = recipe.category;
+        categoryDisplay.style.display = 'block';
+      } else {
+        categoryDisplay.style.display = 'none';
+      }
+      
+      if (recipe.tags && Array.isArray(recipe.tags) && recipe.tags.length > 0) {
+        tagsContainer.innerHTML = '';
+        recipe.tags.forEach(tag => {
+          const tagEl = document.createElement('span');
+          tagEl.className = 'tag';
+          tagEl.textContent = tag;
+          tagsContainer.appendChild(tagEl);
+        });
+        tagsDisplay.style.display = 'block';
+      } else {
+        tagsDisplay.style.display = 'none';
+      }
+      
+      // 説明文をHTML形式で表示
+      const notesEl = document.getElementById('notes');
+      if (notesEl && recipe.notes) {
+        notesEl.innerHTML = recipe.notes; // HTML形式の説明文をそのまま表示
+      }
+      
+      // 材料をHTML形式で表示
+      const ingredientsEl = document.getElementById('ingredients');
+      if (ingredientsEl) {
+        try {
+          const { data: ingredients, error: ingredientsError } = await sb
+            .from('recipe_ingredients')
+            .select('*')
+            .eq('recipe_id', recipe.id)
+            .order('position');
+          
+          if (!ingredientsError && ingredients && ingredients.length > 0) {
+            // HTML形式の材料がある場合はそれを使用
+            const hasHTMLContent = ingredients.some(ing => ing.html_content);
+            if (hasHTMLContent) {
+              // 翻訳版と元の日本語版を分けて表示
+              // 材料の総数から翻訳版の数を推定（通常は半分）
+              const totalIngredients = ingredients.length;
+              const translatedCount = Math.floor(totalIngredients / 2);
+              const translatedIngredients = ingredients.filter(ing => ing.position <= translatedCount);
+              const originalIngredients = ingredients.filter(ing => ing.position > translatedCount);
+              
+              const translatedTableHTML = `
+                <div class="translated-section">
+                  <h4>材料 (Ingredients)</h4>
+                  <div style="overflow-x: auto; width: 100%;">
+                    <table class="table">
+                      <thead>
+                        <tr>
+                          <th>番号</th>
+                          <th>材料名</th>
+                          <th>分量</th>
+                          <th>単位</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${translatedIngredients.map((ing, index) => ing.html_content || `
+                          <tr>
+                            <td>${index + 1}</td>
+                            <td>${ing.item}</td>
+                            <td>${ing.quantity}</td>
+                            <td>${ing.unit}</td>
+                          </tr>
+                        `).join('')}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              `;
+              
+              const originalTableHTML = `
+                <div class="original-section">
+                  <h5>元の材料</h5>
+                  <div style="overflow-x: auto; width: 100%;">
+                    <table class="table">
+                      <thead>
+                        <tr>
+                          <th>番号</th>
+                          <th>材料名</th>
+                          <th>分量</th>
+                          <th>単位</th>
+                          <th>価格</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${originalIngredients.map((ing, index) => ing.html_content || `
+                          <tr>
+                            <td>${index + 1}</td>
+                            <td>${ing.item}</td>
+                            <td>${ing.quantity}</td>
+                            <td>${ing.unit}</td>
+                            <td>${ing.price || ''}</td>
+                          </tr>
+                        `).join('')}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              `;
+              
+              ingredientsEl.innerHTML = translatedTableHTML + originalTableHTML;
+            } else {
+              // 通常の材料表示
+              const tableHTML = `
+                <div class="table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>番号</th>
+                        <th>材料名</th>
+                        <th>分量</th>
+                        <th>単位</th>
+                        <th>price</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${ingredients.map(ing => `
+                        <tr>
+                          <td>${ing.position}</td>
+                          <td>${ing.item}</td>
+                          <td>${ing.quantity}</td>
+                          <td>${ing.unit}</td>
+                          <td>${ing.price || ''}</td>
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              `;
+              ingredientsEl.innerHTML = tableHTML;
+            }
+          } else {
+            ingredientsEl.innerHTML = '<div class="muted">未登録</div>';
+          }
+        } catch (error) {
+          console.error('材料読み込みエラー:', error);
+          ingredientsEl.innerHTML = '<div class="muted">読み込みエラー</div>';
+        }
+      }
+      
+      // 手順をHTML形式で表示
+      const stepsEl = document.getElementById('steps');
+      if (stepsEl) {
+        try {
+          const { data: steps, error: stepsError } = await sb
+            .from('recipe_steps')
+            .select('*')
+            .eq('recipe_id', recipe.id)
+            .order('position');
+          
+          if (!stepsError && steps && steps.length > 0) {
+            // HTML形式の手順がある場合はそれを使用
+            const hasHTMLContent = steps.some(step => step.html_content);
+            if (hasHTMLContent) {
+              // HTML形式の手順をそのまま表示
+              const stepsHTML = steps.map(step => step.html_content || `
+                <div class="step">
+                  <span class="step-number">${step.position}.</span>
+                  <span class="step-text">${step.instruction}</span>
+                </div>
+              `).join('');
+              stepsEl.innerHTML = stepsHTML;
+            } else {
+              // 通常の手順表示
+              const stepsHTML = steps.map(step => `
+                <div class="step">
+                  <span class="step-number">${step.position}.</span>
+                  <span class="step-text">${step.instruction}</span>
+                </div>
+              `).join('');
+              stepsEl.innerHTML = stepsHTML;
+            }
+          } else {
+            stepsEl.innerHTML = '<div class="muted">未登録</div>';
+          }
+        } catch (error) {
+          console.error('手順読み込みエラー:', error);
+          stepsEl.innerHTML = '<div class="muted">読み込みエラー</div>';
+        }
+      }
+      
+      // 画像の表示
+      if (recipe.image_url) {
+        const imageContainer = document.getElementById('recipeImageContainer');
+        const imageEl = document.getElementById('recipeImage');
+        if (imageContainer && imageEl) {
+          imageEl.src = recipe.image_url;
+          imageContainer.style.display = 'block';
+        }
+      }
+    }
+
+    async function load(){
+      // IDがnullの場合は早期リターン
+      if (!id) {
+        console.error('レシピIDがnullです');
+        alert('レシピIDが無効です');
+        location.href = '../index.html';
+        return;
+      }
+      
+      const { data: recs, error } = await sb.from('recipes').select('*').eq('id', id).limit(1);
+      if(error){ console.error(error); alert('レシピの取得に失敗しました'); return; }
+      const r = recs?.[0];
+      if(!r){ alert('レシピが見つかりません'); return; }
+      
+      // 元のレシピIDを保存（翻訳データ保存時に使用）
+      window.originalRecipeId = id;
+      console.log('元のレシピIDを保存:', id);
+
+      titleEl.textContent = r.title || '無題のレシピ';
+      
+      // 言語タグを確認して自動翻訳
+      const languageTag = r.tags?.find(tag => tag.startsWith('翻訳:'));
+      if (languageTag) {
+        const targetLanguage = languageTag.replace('翻訳:', '');
+        console.log('言語タグを検出:', languageTag, '対象言語:', targetLanguage);
+        // 自動翻訳を実行
+        await autoTranslateRecipe(targetLanguage);
+        return; // 自動翻訳の場合は早期リターン
+      }
+      
+      // HTML形式のレシピかどうかチェック
+      if (r.display_format === 'html') {
+        console.log('HTML形式のレシピを読み込み中...');
+        await loadHTMLFormatRecipe(r);
+        return; // HTML形式の場合は早期リターン
+      }
+      
+      // 翻訳データの取得・表示
+      let translationRecipes = null;
+      try {
+        console.log('翻訳データを取得中... recipe_id:', id);
+        
+        // 翻訳レシピテーブルから翻訳データを取得
+        console.log('翻訳データを取得中 - レシピID:', id);
+        const { data: translationRecipesData, error: translationRecipeError } = await sb
+          .from('translation_recipes')
+          .select('*')
+          .eq('original_recipe_id', id)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        
+        console.log('翻訳データ取得結果:', { translationRecipesData, translationRecipeError });
+        
+        // テーブルが存在しない場合のエラーハンドリング
+        if (translationRecipeError) {
+          if (translationRecipeError.code === 'PGRST116' || translationRecipeError.message.includes('relation "translation_recipes" does not exist')) {
+            console.log('translation_recipesテーブルが存在しません。create_translation_recipe_tables.sqlを実行してください。');
+            translationRecipes = null;
+          } else if (translationRecipeError.code === 'PGRST200') {
+            console.log('translation_recipesテーブルの関係性に問題があります。テーブル構造を確認してください。');
+            translationRecipes = null;
+          } else {
+            console.error('翻訳レシピ取得エラー:', translationRecipeError);
+            translationRecipes = null;
+          }
+        } else {
+          translationRecipes = translationRecipesData;
+        }
+        console.log('翻訳レシピ取得結果:', { translationRecipes, translationRecipeError });
+        if (translationRecipes && translationRecipes.length > 0) {
+          console.log('翻訳データが見つかりました:', translationRecipes[0]);
+        } else {
+          console.log('翻訳データが見つかりませんでした');
+        }
+        
+        // フォールバック: 古い翻訳テーブルからも取得
+        const { data: translations, error: translationError } = await sb
+          .from('recipe_translations')
+          .select('translated_title, language_code, html_content')
+          .eq('recipe_id', id);
+        
+        console.log('翻訳取得結果:', { translations, translationError });
+        
+        // 翻訳レシピデータが存在する場合
+        if (translationRecipes && translationRecipes.length > 0) {
+          const translationRecipe = translationRecipes[0];
+          console.log('翻訳レシピデータを表示:', translationRecipe);
+          console.log('翻訳レシピの言語コード:', translationRecipe.language_code);
+          console.log('翻訳材料データ:', translationRecipe.translation_recipe_ingredients);
+          console.log('翻訳手順データ:', translationRecipe.translation_recipe_steps);
+          
+          // 翻訳材料データを取得
+          const { data: translationIngredients, error: ingredientsError } = await sb
+            .from('translation_recipe_ingredients')
+            .select('*')
+            .eq('translation_recipe_id', translationRecipe.id)
+            .order('position', { ascending: true });
+          
+          // 翻訳手順データを取得
+          const { data: translationSteps, error: stepsError } = await sb
+            .from('translation_recipe_steps')
+            .select('*')
+            .eq('translation_recipe_id', translationRecipe.id)
+            .order('position', { ascending: true });
+          
+          // 翻訳データを統合
+          translationRecipe.translation_recipe_ingredients = translationIngredients || [];
+          translationRecipe.translation_recipe_steps = translationSteps || [];
+          
+          // タイトルを翻訳版に変更
+          if (translationRecipe.translated_title) {
+            titleEl.textContent = translationRecipe.translated_title;
+            
+            // 翻訳タイトル要素に元のタイトルを表示
+            const translatedTitleEl = document.getElementById('translatedTitle');
+            if (translatedTitleEl) {
+              const flagEmoji = getFlagEmoji(translationRecipe.language_code);
+              translatedTitleEl.innerHTML = `
+                <span class="original-text">（${translationRecipe.original_title}）</span>
+                <span class="flag-emoji">${flagEmoji}</span>
+              `;
+              translatedTitleEl.style.display = 'block';
+            }
+          }
+          
+          // 説明を翻訳版に変更
+          if (translationRecipe.translated_description) {
+            const notesEl = document.getElementById('notes');
+            if (notesEl) {
+              notesEl.innerHTML = `
+                <div class="translated-description">
+                  <div class="translated-text">${translationRecipe.translated_description}</div>
+                  <div class="original-text">（${translationRecipe.original_description}）</div>
+                </div>
+              `;
+            }
+          }
+          
+          // 翻訳された材料を表示
+          if (translationRecipe.translation_recipe_ingredients && translationRecipe.translation_recipe_ingredients.length > 0) {
+            console.log('翻訳材料データを表示中:', translationRecipe.translation_recipe_ingredients);
+            const ingredientsEl = document.getElementById('ingredients');
+            if (ingredientsEl) {
+              // 元の材料データを取得（翻訳版と併記するため）
+              let originalIngredientsHTML = '';
+              try {
+                const { data: originalIngredients } = await sb
+                  .from('recipe_ingredients')
+                  .select('*')
+                  .eq('recipe_id', id)
+                  .order('position', { ascending: true });
+                
+                if (originalIngredients && originalIngredients.length > 0) {
+                  const translations = uiTranslations[translationRecipe.language_code] || {};
+                  originalIngredientsHTML = `
+                    <div style="overflow-x: auto; width: 100%;">
+                      <table class="table">
+                        <thead>
+                          <tr>
+                            <th>${translations.number || '番号'}</th>
+                            <th>${translations.ingredient_name || '材料名'}</th>
+                            <th>${translations.quantity || '分量'}</th>
+                            <th>${translations.unit || '単位'}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          ${originalIngredients.map(ing => `
+                            <tr>
+                              <td>${ing.position}</td>
+                              <td>${ing.item}</td>
+                              <td>${ing.quantity}</td>
+                              <td>${ing.unit}</td>
+                            </tr>
+                          `).join('')}
+                        </tbody>
+                      </table>
+                    </div>
+                  `;
+                }
+              } catch (error) {
+                console.warn('元の材料データ取得エラー:', error);
+              }
+              
+              const translations = uiTranslations[translationRecipe.language_code] || {};
+              const translatedIngredientsHTML = `
+                <div class="translated-section">
+                  <h4>${translations.ingredients || 'Ingredients'}</h4>
+                  <div style="overflow-x: auto; width: 100%;">
+                    <table class="table">
+                      <thead>
+                        <tr>
+                          <th>${translations.number || '番号'}</th>
+                          <th>${translations.ingredient_name || '材料名'}</th>
+                          <th>${translations.quantity || '分量'}</th>
+                          <th>${translations.unit || '単位'}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${translationRecipe.translation_recipe_ingredients.map(ing => `
+                          <tr>
+                            <td>${ing.position}</td>
+                            <td>${ing.translated_item || ''}</td>
+                            <td>${ing.quantity || ''}</td>
+                            <td>${ing.unit || ''}</td>
+                          </tr>
+                        `).join('')}
+                      </tbody>
+                    </table>
+                  </div>
+                  ${originalIngredientsHTML ? `
+                    <div class="original-section">
+                      <h5>${translations.original_ingredients || '元の材料'}</h5>
+                      ${originalIngredientsHTML}
+                    </div>
+                  ` : ''}
+                </div>
+              `;
+              ingredientsEl.innerHTML = translatedIngredientsHTML;
+            }
+          }
+          
+          // 翻訳された手順を表示
+          if (translationRecipe.translation_recipe_steps && translationRecipe.translation_recipe_steps.length > 0) {
+            const stepsEl = document.getElementById('steps');
+            if (stepsEl) {
+              // 元の手順データを取得（翻訳版と併記するため）
+              let originalStepsHTML = '';
+              try {
+                const { data: originalSteps } = await sb
+                  .from('recipe_steps')
+                  .select('*')
+                  .eq('recipe_id', id)
+                  .order('position', { ascending: true });
+                
+                if (originalSteps && originalSteps.length > 0) {
+                  originalStepsHTML = `
+                    <ol>
+                      ${originalSteps.map(step => `
+                        <li>${step.instruction || step.step || step.description || step.body || ''}</li>
+                      `).join('')}
+                    </ol>
+                  `;
+                }
+              } catch (error) {
+                console.warn('元の手順データ取得エラー:', error);
+              }
+              
+              const translations = uiTranslations[translationRecipe.language_code] || {};
+              const translatedStepsHTML = `
+                <div class="translated-section">
+                  <h4>${translations.instructions || 'Instructions'}</h4>
+                  <ol>
+                    ${translationRecipe.translation_recipe_steps.map(step => `
+                      <li>${step.translated_instruction || ''}</li>
+                    `).join('')}
+                  </ol>
+                  ${originalStepsHTML ? `
+                    <div class="original-section">
+                      <h5>${translations.original_instructions || '元の作り方'}</h5>
+                      ${originalStepsHTML}
+                    </div>
+                  ` : ''}
+                </div>
+              `;
+              stepsEl.innerHTML = translatedStepsHTML;
+            }
+          }
+          
+          // UI要素を翻訳
+          if (translationRecipe.language_code) {
+            console.log('UI要素を翻訳中:', translationRecipe.language_code);
+            translateUI(translationRecipe.language_code);
+          }
+        }
+        // テーブルが存在しない場合のエラーハンドリング
+        else if (translationError) {
+          if (translationError.code === 'PGRST116' || translationError.message.includes('relation "recipe_translations" does not exist')) {
+            console.log('recipe_translationsテーブルが存在しません。翻訳機能をスキップします。');
+            console.log('テーブルを作成するには、fix_recipe_translations_error.sqlを実行してください。');
+          } else if (translationError.code === 'PGRST205' || translationError.message.includes('column') || translationError.status === 400) {
+            console.log('recipe_translationsテーブルの構造に問題があります。翻訳機能をスキップします。');
+            console.log('テーブル構造を確認してください。');
+          } else {
+            console.error('翻訳取得エラー:', translationError);
+          }
+        } else if (translations && translations.length > 0) {
+          const translation = translations[0];
+          console.log('表示する翻訳:', translation);
+          const translatedTitleEl = document.getElementById('translatedTitle');
+          if (translatedTitleEl) {
+            // HTML形式の翻訳タイトルがある場合はそれを使用
+            if (translation.html_content) {
+              translatedTitleEl.innerHTML = translation.html_content;
+            } else {
+              // 通常の翻訳タイトル表示
+              const flagEmoji = getFlagEmoji(translation.language_code);
+              translatedTitleEl.innerHTML = `${translation.translated_title} <span class="flag-emoji">${flagEmoji}</span>`;
+            }
+            translatedTitleEl.style.display = 'block';
+            console.log('翻訳タイトルを表示:', translation.translated_title);
+          } else {
+            console.error('translatedTitle要素が見つかりません');
+          }
+          
+          // UI要素を翻訳
+          if (translation.language_code) {
+            console.log('UI要素を翻訳中:', translation.language_code);
+            translateUI(translation.language_code);
+          }
+        } else {
+          console.log('翻訳データがありません');
+        }
+      } catch (translationError) {
+        console.error('翻訳取得エラー:', translationError);
+        translationRecipes = null; // エラー時は翻訳データなしとして扱う
+        if (translationError.message && translationError.message.includes('recipe_translations')) {
+          console.log('recipe_translationsテーブルが存在しない可能性があります。');
+        }
+      }
+      
+      const dt = r.updated_at || r.created_at;
+      metaEl.textContent = dt ? `更新: ${new Date(dt).toLocaleString()}` : '';
+
+      // カテゴリーとタグの表示
+      const categoryDisplay = document.getElementById('categoryDisplay');
+      const categoryText = document.getElementById('categoryText');
+      const tagsDisplay = document.getElementById('tagsDisplay');
+      const tagsContainer = document.getElementById('tagsContainer');
+      
+      // カテゴリー表示
+      if (r.category && r.category.trim()) {
+        categoryText.textContent = r.category;
+        categoryDisplay.style.display = 'inline-block';
+      } else {
+        categoryDisplay.style.display = 'none';
+      }
+      
+      // タグ表示（個別バッジ）
+      const tags = Array.isArray(r.tags) ? r.tags : (r.tags ? String(r.tags).split(/[,\s]+/).filter(Boolean) : []);
+      if (tags && tags.length > 0) {
+        tagsContainer.innerHTML = tags.map(tag => 
+          `<span style="background: #f3e5f5; color: #7b1fa2; padding: 2px 8px; border-radius: 10px; font-size: 0.8em; font-weight: 500; white-space: nowrap;">${escapeHtml(tag)}</span>`
+        ).join('');
+        tagsDisplay.style.display = 'block';
+      } else {
+        tagsDisplay.style.display = 'none';
+      }
+
+      tagsEl.innerHTML = (tags||[]).map(t=>`<span class="tag">${escapeHtml(t)}</span>`).join('');
+      notesEl.textContent = r.notes || '';
+      
+      // source_url表示処理
+      const sourceUrlSection = document.getElementById('sourceUrlSection');
+      const sourceUrlLink = document.getElementById('sourceUrlLink');
+      const sourceUrlText = document.getElementById('sourceUrlText');
+      if (r.source_url && r.source_url.trim()) {
+        sourceUrlLink.href = r.source_url;
+        sourceUrlText.textContent = r.source_url;
+        sourceUrlSection.style.display = 'block';
+      } else {
+        sourceUrlSection.style.display = 'none';
+      }
+      
+      // レシピ画像の表示
+      const recipeImageContainer = document.getElementById('recipeImageContainer');
+      const recipeImage = document.getElementById('recipeImage');
+      console.log('🔍 画像データ確認:', { 
+        hasImageUrl: !!r.image_url, 
+        imageUrlLength: r.image_url ? r.image_url.length : 0,
+        imageUrlStart: r.image_url ? r.image_url.substring(0, 50) + '...' : 'none'
+      });
+      
+      if (r.image_url && r.image_url.trim()) {
+        recipeImage.src = r.image_url;
+        recipeImageContainer.style.display = 'flex';
+        console.log('📸 レシピ画像を表示しました');
+      } else {
+        recipeImageContainer.style.display = 'none';
+        console.warn('⚠️ 画像データがありません');
+      }
+
+      // 翻訳データがない場合のみ通常の材料表示処理を実行
+      if (!translationRecipes || translationRecipes.length === 0) {
+        console.log('翻訳データなし - 通常の材料表示処理を実行');
+        try{
+          const { data: ings, error: e1 } = await sb.from('recipe_ingredients').select('*').eq('recipe_id', id).order('position', {ascending:true}).order('id', {ascending:true});
+          if(!e1 && ings?.length){
+            // 列名を日本語にマッピング
+            const columnMapping = {
+              'position': '番号',
+              'item': '材料名',
+              'quantity': '分量',
+              'unit': '単位',
+              'price': '価格',
+              'html_content': 'HTML形式'
+            };
+            
+            const cols = ['position', 'item', 'quantity', 'unit'].filter(k => ings[0].hasOwnProperty(k));
+            const thead = `<thead><tr>${cols.map(c=>`<th>${escapeHtml(columnMapping[c] || c)}</th>`).join('')}</tr></thead>`;
+            const tbody = `<tbody>${ings.map(row=>`<tr>${cols.map(c=>`<td>${escapeHtml(row[c])}</td>`).join('')}</tr>`).join('')}</tbody>`;
+            ingEl.innerHTML = `<div style="overflow-x: auto; width: 100%;"><table class="table">${thead}${tbody}</table></div>`;
+          }else{
+            ingEl.innerHTML = '<div class="muted">未登録</div>';
+          }
+        }catch(_){
+          ingEl.innerHTML = '<div class="muted">未登録</div>';
+        }
+      }
+
+      // 翻訳データがない場合のみ通常の手順表示処理を実行
+      if (!translationRecipes || translationRecipes.length === 0) {
+        try{
+          const { data: steps, error: e2 } = await sb.from('recipe_steps').select('*').eq('recipe_id', id).order('position', {ascending:true}).order('id', {ascending:true});
+          if(!e2 && steps?.length){
+            stepsEl.innerHTML = steps.map(s=>`<li>${escapeHtml(s.instruction || s.step || s.description || s.body || '')}</li>`).join('');
+          }else{
+            stepsEl.innerHTML = '<li class="muted">未登録</li>';
+          }
+        }catch(_){
+          stepsEl.innerHTML = '<li class="muted">未登録</li>';
+        }
+      }
+
+      await refreshFavState();
+    }
+
+
+    load();
+  }catch(e){
+    console.error(e);
+  }
+})();
+
+
+// 翻訳機能
+let currentTranslatedData = null;
+
+
+// 翻訳ポップアップの制御
+function showTranslatePopup() {
+  console.log('翻訳ポップアップを表示');
+  document.getElementById('translatePopup').style.display = 'block';
+}
+
+function closeTranslatePopup() {
+  document.getElementById('translatePopup').style.display = 'none';
+}
+
+function showTranslateLoading() {
+  document.getElementById('translateLoading').style.display = 'block';
+}
+
+function hideTranslateLoading() {
+  document.getElementById('translateLoading').style.display = 'none';
+}
+
+// 翻訳開始関数
+async function startTranslation(language) {
+  console.log('翻訳開始:', language);
+  
+  // ポップアップを閉じてローディングを表示
+  closeTranslatePopup();
+  showTranslateLoading();
+  
+  // レート制限回避のため少し待機
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  try {
+    // 現在のレシピデータを収集
+    const recipeData = {
+      title: document.getElementById('recipeTitle').textContent,
+      description: document.getElementById('notes')?.textContent || '',
+      ingredients: Array.from(document.querySelectorAll('#ingredients .table tbody tr')).map(row => {
+        const cells = row.querySelectorAll('td');
+        return {
+          position: cells[0]?.textContent || '',
+          item: cells[1]?.textContent || '',
+          quantity: cells[2]?.textContent || '',
+          unit: cells[3]?.textContent || ''
+        };
+      }),
+      steps: Array.from(document.querySelectorAll('#steps li')).map((step, index) => {
+        const text = step.textContent || '';
+        return { number: index + 1, text };
+      })
+    };
+    
+    console.log('収集したレシピデータ:', recipeData);
+    console.log('説明文の長さ:', recipeData.description.length);
+    console.log('材料数:', recipeData.ingredients.length);
+    console.log('手順数:', recipeData.steps.length);
+    console.log('手順データ:', recipeData.steps);
+    
+    // AI翻訳を実行
+    const translatedData = await translateRecipe(recipeData, language);
+    currentTranslatedData = translatedData;
+    
+    console.log('翻訳結果:', translatedData);
+    console.log('翻訳タイトル:', translatedData.title);
+    console.log('翻訳説明:', translatedData.description);
+    
+    console.log('翻訳材料数:', translatedData.ingredients ? translatedData.ingredients.length : 0);
+    console.log('翻訳手順数:', translatedData.steps ? translatedData.steps.length : 0);
+    
+    // ローディングを非表示にして翻訳結果を表示
+    hideTranslateLoading();
+    await showTranslatedResult(translatedData, language);
+    
+  } catch (error) {
+    console.error('翻訳エラー:', error);
+    hideTranslateLoading();
+    
+    let errorMessage = '翻訳に失敗しました: ' + error.message;
+    if (error.message.includes('429')) {
+      errorMessage = '翻訳APIの利用制限に達しました。しばらく時間をおいてから再度お試しください。';
+    } else if (error.message.includes('API')) {
+      errorMessage = '翻訳APIでエラーが発生しました。しばらく時間をおいてから再度お試しください。';
+    }
+    
+    alert(errorMessage);
+  }
+}
+
+
+// UI要素を翻訳する関数（グローバルスコープ）
+function translateUI(language) {
+  const translations = uiTranslations[language];
+  if (!translations) return;
+  
+  // 材料セクションのタイトルを翻訳
+  const ingredientsTitle = document.querySelector('aside h3');
+  if (ingredientsTitle && ingredientsTitle.textContent.includes('材料')) {
+    ingredientsTitle.textContent = translations.ingredients;
+  }
+  
+  // 手順セクションのタイトルを翻訳
+  const stepsTitle = document.querySelector('aside h3:nth-of-type(2)');
+  if (stepsTitle && stepsTitle.textContent.includes('手順')) {
+    stepsTitle.textContent = translations.steps;
+  }
+  
+  // 翻訳セクション内のタイトルを翻訳
+  const translatedInstructions = document.querySelector('.translated-section h4');
+  if (translatedInstructions) {
+    translatedInstructions.textContent = `${translations.instructions} (${translations.instructions})`;
+  }
+  
+  // 元のセクションのタイトルを翻訳
+  const originalInstructions = document.querySelector('.original-section h5');
+  if (originalInstructions) {
+    originalInstructions.textContent = translations.original_instructions;
+  }
+  
+  // テーブルヘッダーを翻訳
+  const tableHeaders = document.querySelectorAll('table thead th');
+  tableHeaders.forEach(header => {
+    const text = header.textContent.trim();
+    if (text === '番号') {
+      header.textContent = translations.number || '番号';
+    } else if (text === '材料名') {
+      header.textContent = translations.ingredient_name || '材料名';
+    } else if (text === '分量') {
+      header.textContent = translations.quantity || '分量';
+    } else if (text === '単位') {
+      header.textContent = translations.unit || '単位';
+    }
+  });
+}
+
+// レシピ翻訳関数
+async function translateRecipe(recipeData, targetLanguage) {
+  const languageNames = {
+    'fr': 'フランス語',
+    'it': 'イタリア語',
+    'zh': '中国語',
+    'es': 'スペイン語',
+    'de': 'ドイツ語',
+    'en': '英語'
+  };
+  
+  const languageName = languageNames[targetLanguage];
+  
+  const prompt = `以下のレシピを${languageName}に翻訳してください。料理名、材料、手順すべてを自然で適切な${languageName}に翻訳してください。
+
+料理名: ${recipeData.title}
+説明: ${recipeData.description}
+
+材料:
+${recipeData.ingredients.map(ing => `${ing.position}. ${ing.item} ${ing.quantity} ${ing.unit}`).join('\n')}
+
+作り方:
+${recipeData.steps.map(step => `${step.number}. ${step.text}`).join('\n')}
+
+重要: 必ず以下のJSON形式のみで回答してください。説明や追加のテキスト、Markdown記号（\`\`\`など）は一切含めないでください。純粋なJSONのみを返してください。
+
+料理名は必ず${languageName}で翻訳してください。日本語のままにしないでください。
+
+{
+  "title": "翻訳された料理名（${languageName}）",
+  "description": "翻訳された説明",
+  "ingredients": [
+    {"position": "番号", "item": "材料名", "quantity": "分量", "unit": "単位"}
+  ],
+  "steps": [
+    {"number": "番号", "text": "手順"}
+  ]
+}`;
+
+  const { data, error } = await sb.functions.invoke('call-groq-api', {
+    body: {
+      prompt,
+      model: 'llama-3.1-8b-instant',
+      maxTokens: 2000,
+      temperature: 0.3
+    }
+  });
+
+  if (error || !data?.success) {
+    throw new Error(`翻訳API エラー: ${data?.error || error?.message || 'unknown'}`);
+  }
+
+  const translatedText = data.content?.trim();
+  
+  if (!translatedText) {
+    throw new Error('翻訳結果が取得できませんでした');
+  }
+
+  console.log('翻訳レスポンス:', translatedText);
+  console.log('翻訳レスポンスの長さ:', translatedText.length);
+
+  try {
+    // Markdown形式のコードブロックを除去
+    let cleanText = translatedText;
+    if (cleanText.includes('```json+')) {
+      cleanText = cleanText.replace(/```json\+?\s*/, '');
+    }
+    if (cleanText.includes('```')) {
+      cleanText = cleanText.replace(/```\s*$/, '');
+    }
+    
+    // JSON形式の部分を抽出
+    const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      console.log('JSON形式で翻訳結果を解析:', jsonMatch[0]);
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        console.log('解析された翻訳データ:', parsed);
+        console.log('解析されたタイトル:', parsed.title);
+        return parsed;
+      } catch (parseError) {
+        console.error('JSON解析エラー:', parseError);
+        console.log('翻訳テキスト:', translatedText);
+        // フォールバック: 手動で構造化
+        return parseTranslatedTextManually(cleanText);
+      }
+    } else {
+      console.log('JSON形式ではないため、手動で構造化');
+    // JSON形式でない場合は、手動で構造化
+    const lines = translatedText.split('\n').filter(line => line.trim());
+    const result = {
+      title: lines[0] || '翻訳された料理名',
+      description: lines.slice(1, 3).join(' ') || '翻訳された説明',
+      ingredients: [],
+      steps: []
+    };
+    console.log('手動構造化の結果:', result);
+      
+      // 材料と手順を抽出（簡易版）
+      let currentSection = '';
+      lines.forEach(line => {
+        if (line.includes('材料') || line.includes('ingredients')) {
+          currentSection = 'ingredients';
+        } else if (line.includes('作り方') || line.includes('手順') || line.includes('steps')) {
+          currentSection = 'steps';
+        } else if (currentSection === 'ingredients' && /^\d+\./.test(line)) {
+          const parts = line.split(/[\s\t]+/);
+          result.ingredients.push({
+            position: parts[0].replace('.', ''),
+            item: parts.slice(1, -2).join(' '),
+            quantity: parts[parts.length - 2] || '',
+            unit: parts[parts.length - 1] || ''
+          });
+        } else if (currentSection === 'steps' && /^\d+\./.test(line)) {
+          result.steps.push({
+            number: line.match(/^\d+/)[0],
+            text: line.replace(/^\d+\.\s*/, '')
+          });
+        }
+      });
+      
+      return result;
+    }
+  } catch (parseError) {
+    console.error('JSON解析エラー:', parseError);
+    console.error('翻訳テキスト:', translatedText);
+    
+    // フォールバック: 基本的な構造を返す
+    return {
+      title: translatedText.split('\n')[0] || '翻訳された料理名',
+      description: '翻訳された説明',
+      ingredients: [],
+      steps: []
+    };
+  }
+}
+
+// 翻訳テキストを手動で構造化する関数
+function parseTranslatedTextManually(text) {
+  console.log('手動で翻訳テキストを構造化:', text);
+  
+  try {
+    // まず、不完全なJSONを修正してみる
+    let fixedText = text;
+    
+    // 不完全なJSONの修正
+    if (fixedText.includes('"ingredients": [')) {
+      // ingredients配列の終了を確認
+      if (!fixedText.includes(']')) {
+        fixedText += ']';
+      }
+    }
+    if (fixedText.includes('"steps": [')) {
+      // steps配列の終了を確認
+      if (!fixedText.includes(']')) {
+        fixedText += ']';
+      }
+    }
+    
+    // 最後の}を確認
+    if (!fixedText.includes('}')) {
+      fixedText += '}';
+    }
+    
+    // 修正されたテキストでJSON解析を試行
+    const jsonMatch = fixedText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        console.log('修正されたJSON解析成功:', parsed);
+        return parsed;
+      } catch (e) {
+        console.log('修正されたJSONでも解析失敗:', e);
+      }
+    }
+  } catch (e) {
+    console.log('JSON修正失敗:', e);
+  }
+  
+  // 完全にフォールバック: 基本的な構造を返す
+  return {
+    title: '翻訳された料理名',
+    description: '翻訳された説明',
+    ingredients: [],
+    steps: []
+  };
+}
+
+// 翻訳結果表示
+async function showTranslatedResult(translatedData, language) {
+  console.log('showTranslatedResult called with:', { translatedData, language });
+  console.log('翻訳データのタイトル:', translatedData.title);
+  console.log('翻訳データ全体:', JSON.stringify(translatedData, null, 2));
+  
+  const flagEmoji = getFlagEmoji(language);
+  
+  // 翻訳タイトルを表示
+  const translatedTitleEl = document.getElementById('translatedTitle');
+  console.log('translatedTitleEl found:', !!translatedTitleEl);
+  if (translatedTitleEl) {
+    // 元のレシピタイトルを取得
+    const originalTitle = document.getElementById('recipeTitle')?.textContent?.trim() || '';
+    console.log('元のタイトル:', originalTitle);
+    console.log('翻訳タイトル:', translatedData.title);
+    
+    // 翻訳タイトルが空でない場合のみ表示
+    if (translatedData.title && translatedData.title.trim() && translatedData.title !== '翻訳された料理名') {
+      // メインの料理名も翻訳版に置き換え
+      const mainTitleEl = document.getElementById('recipeTitle');
+      if (mainTitleEl) {
+        mainTitleEl.textContent = translatedData.title;
+        console.log('メインタイトルを翻訳版に置き換えました:', translatedData.title);
+      }
+      
+      // 翻訳タイトル要素には元の日本語を表示
+      translatedTitleEl.innerHTML = `
+        <span class="original-text">（${originalTitle}）</span>
+        <span class="flag-emoji">${flagEmoji}</span>
+      `;
+      translatedTitleEl.style.display = 'block';
+      console.log('翻訳タイトルを表示しました:', translatedData.title);
+    } else {
+      console.log('翻訳タイトルが空またはデフォルト値のため表示しません');
+      translatedTitleEl.style.display = 'none';
+    }
+  }
+  
+  // 翻訳説明文を表示
+  if (translatedData.description && translatedData.description.trim()) {
+    const notesEl = document.getElementById('notes');
+    if (notesEl) {
+      const originalDescription = notesEl.textContent || '';
+      notesEl.innerHTML = `
+        <div class="translated-description">
+          <div class="translated-text">${translatedData.description}</div>
+          <div class="original-text">（${originalDescription}）</div>
+        </div>
+      `;
+    }
+  }
+  
+  // 翻訳材料を表示
+  console.log('翻訳材料データ:', translatedData.ingredients);
+  if (translatedData.ingredients && translatedData.ingredients.length > 0) {
+    const ingredientsEl = document.getElementById('ingredients');
+    console.log('ingredientsEl found:', !!ingredientsEl);
+    if (ingredientsEl) {
+      const originalIngredients = ingredientsEl.innerHTML;
+      const translations = uiTranslations[language] || {};
+      const translatedIngredientsHTML = `
+        <div class="translated-section">
+          <h4>${translations.ingredients || 'Ingredients'}</h4>
+          <div style="overflow-x: auto; width: 100%;">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>${translations.number || '番号'}</th>
+                  <th>${translations.ingredient_name || '材料名'}</th>
+                  <th>${translations.quantity || '分量'}</th>
+                  <th>${translations.unit || '単位'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${translatedData.ingredients.map(ing => {
+                  const position = ing.position || '';
+                  const item = ing.item || '';
+                  const quantity = ing.quantity || '';
+                  const unit = ing.unit || '';
+                  return `
+                    <tr>
+                      <td>${position === 'false' ? '' : position}</td>
+                      <td>${item === 'false' ? '' : item}</td>
+                      <td>${quantity === 'false' ? '' : quantity}</td>
+                      <td>${unit === 'false' ? '' : unit}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+          <div class="original-section">
+            <h5>${translations.original_ingredients || '元の材料'}</h5>
+            ${originalIngredients}
+          </div>
+        </div>
+      `;
+      ingredientsEl.innerHTML = translatedIngredientsHTML;
+    }
+  }
+  
+  // 翻訳手順を表示
+  console.log('翻訳手順データ:', translatedData.steps);
+  if (translatedData.steps && translatedData.steps.length > 0) {
+    const stepsEl = document.getElementById('steps');
+    console.log('stepsEl found:', !!stepsEl);
+    if (stepsEl) {
+      const originalSteps = stepsEl.innerHTML;
+      const translations = uiTranslations[language] || {};
+      const translatedStepsHTML = `
+        <div class="translated-section">
+          <h4>${translations.instructions || 'Instructions'}</h4>
+          <ol>
+            ${translatedData.steps.map(step => {
+              const instruction = step.instruction || step.text || '';
+              return `<li>${instruction === 'false' ? '' : instruction}</li>`;
+            }).join('')}
+          </ol>
+          <div class="original-section">
+            <h5>${translations.original_instructions || '元の作り方'}</h5>
+            ${originalSteps}
+          </div>
+        </div>
+      `;
+      stepsEl.innerHTML = translatedStepsHTML;
+    }
+  }
+  
+  // UI要素を翻訳
+  translateUI(language);
+  
+  // 翻訳完了 - 自動的に翻訳版を保存
+  console.log('翻訳表示完了。自動的に翻訳版を保存します。');
+  
+  // 自動的に翻訳版を保存
+  try {
+    await saveTranslatedRecipe(translatedData, false);
+    console.log('翻訳版を自動保存しました');
+  } catch (error) {
+    console.error('翻訳版自動保存エラー:', error);
+    alert('翻訳版の自動保存に失敗しました: ' + error.message);
+  }
+}
+
+// 自動翻訳関数（言語タグから翻訳を実行）
+async function autoTranslateRecipe(targetLanguage) {
+  console.log('自動翻訳を開始:', targetLanguage);
+  
+  try {
+    // 翻訳データを取得
+    const { data: translationRecipes, error } = await sb
+      .from('translation_recipes')
+      .select('*')
+      .eq('original_recipe_id', window.originalRecipeId)
+      .eq('language_code', targetLanguage)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    
+    if (error) {
+      console.error('翻訳データ取得エラー:', error);
+      return;
+    }
+    
+    if (!translationRecipes || translationRecipes.length === 0) {
+      console.log('翻訳データが見つかりません。通常表示に切り替えます。');
+      return;
+    }
+    
+    const translationRecipe = translationRecipes[0];
+    console.log('翻訳データを発見:', translationRecipe);
+    
+    // 翻訳材料と手順データを取得
+    const { data: translationIngredients } = await sb
+      .from('translation_recipe_ingredients')
+      .select('*')
+      .eq('translation_recipe_id', translationRecipe.id)
+      .order('position', { ascending: true });
+    
+    const { data: translationSteps } = await sb
+      .from('translation_recipe_steps')
+      .select('*')
+      .eq('translation_recipe_id', translationRecipe.id)
+      .order('position', { ascending: true });
+    
+    // 翻訳データを統合
+    translationRecipe.translation_recipe_ingredients = translationIngredients || [];
+    translationRecipe.translation_recipe_steps = translationSteps || [];
+    
+    // 翻訳表示を実行
+    await displayTranslatedRecipe(translationRecipe);
+    
+  } catch (error) {
+    console.error('自動翻訳エラー:', error);
+  }
+}
+
+// 翻訳レシピの表示関数
+async function displayTranslatedRecipe(translationRecipe) {
+  console.log('翻訳レシピを表示中:', translationRecipe);
+  
+  // タイトルを翻訳版に変更
+  const titleEl = document.getElementById('recipeTitle');
+  if (titleEl && translationRecipe.translated_title) {
+    titleEl.textContent = translationRecipe.translated_title;
+    
+    // 翻訳タイトル要素に元のタイトルを表示
+    const translatedTitleEl = document.getElementById('translatedTitle');
+    if (translatedTitleEl) {
+      const flagEmoji = getFlagEmoji(translationRecipe.language_code);
+      translatedTitleEl.innerHTML = `
+        <span class="original-text">（${translationRecipe.original_title}）</span>
+        <span class="flag-emoji">${flagEmoji}</span>
+      `;
+      translatedTitleEl.style.display = 'block';
+    }
+  }
+  
+  // 説明を翻訳版に変更
+  if (translationRecipe.translated_description) {
+    const notesEl = document.getElementById('notes');
+    if (notesEl) {
+      notesEl.innerHTML = `
+        <div class="translated-description">
+          <div class="translated-text">${translationRecipe.translated_description}</div>
+          <div class="original-text">（${translationRecipe.original_description}）</div>
+        </div>
+      `;
+    }
+  }
+  
+  // 翻訳された材料を表示
+  if (translationRecipe.translation_recipe_ingredients && translationRecipe.translation_recipe_ingredients.length > 0) {
+    const ingredientsEl = document.getElementById('ingredients');
+    if (ingredientsEl) {
+      // 元の材料データを取得（翻訳版と併記するため）
+      let originalIngredientsHTML = '';
+      try {
+        const { data: originalIngredients } = await sb
+          .from('recipe_ingredients')
+          .select('*')
+          .eq('recipe_id', window.originalRecipeId)
+          .order('position', { ascending: true });
+        
+        if (originalIngredients && originalIngredients.length > 0) {
+          const translations = uiTranslations[translationRecipe.language_code] || {};
+          originalIngredientsHTML = `
+            <div style="overflow-x: auto; width: 100%;">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>${translations.number || '番号'}</th>
+                    <th>${translations.ingredient_name || '材料名'}</th>
+                    <th>${translations.quantity || '分量'}</th>
+                    <th>${translations.unit || '単位'}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${originalIngredients.map(ing => `
+                    <tr>
+                      <td>${ing.position}</td>
+                      <td>${ing.item}</td>
+                      <td>${ing.quantity}</td>
+                      <td>${ing.unit}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `;
+        }
+      } catch (error) {
+        console.warn('元の材料データ取得エラー:', error);
+      }
+      
+      const translations = uiTranslations[translationRecipe.language_code] || {};
+      const translatedIngredientsHTML = `
+        <div class="translated-section">
+          <h4>${translations.ingredients || 'Ingredients'}</h4>
+          <div style="overflow-x: auto; width: 100%;">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>${translations.number || '番号'}</th>
+                  <th>${translations.ingredient_name || '材料名'}</th>
+                  <th>${translations.quantity || '分量'}</th>
+                  <th>${translations.unit || '単位'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${translationRecipe.translation_recipe_ingredients.map(ing => `
+                  <tr>
+                    <td>${ing.position}</td>
+                    <td>${ing.translated_item || ''}</td>
+                    <td>${ing.quantity || ''}</td>
+                    <td>${ing.unit || ''}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          ${originalIngredientsHTML ? `
+            <div class="original-section">
+              <h5>${translations.original_ingredients || '元の材料'}</h5>
+              ${originalIngredientsHTML}
+            </div>
+          ` : ''}
+        </div>
+      `;
+      ingredientsEl.innerHTML = translatedIngredientsHTML;
+    }
+  }
+  
+  // 翻訳された手順を表示
+  if (translationRecipe.translation_recipe_steps && translationRecipe.translation_recipe_steps.length > 0) {
+    const stepsEl = document.getElementById('steps');
+    if (stepsEl) {
+      // 元の手順データを取得（翻訳版と併記するため）
+      let originalStepsHTML = '';
+      try {
+        const { data: originalSteps } = await sb
+          .from('recipe_steps')
+          .select('*')
+          .eq('recipe_id', window.originalRecipeId)
+          .order('position', { ascending: true });
+        
+        if (originalSteps && originalSteps.length > 0) {
+          originalStepsHTML = `
+            <ol>
+              ${originalSteps.map(step => `
+                <li>${step.instruction || step.step || step.description || step.body || ''}</li>
+              `).join('')}
+            </ol>
+          `;
+        }
+      } catch (error) {
+        console.warn('元の手順データ取得エラー:', error);
+      }
+      
+      const translations = uiTranslations[translationRecipe.language_code] || {};
+      const translatedStepsHTML = `
+        <div class="translated-section">
+          <h4>${translations.instructions || 'Instructions'}</h4>
+          <ol>
+            ${translationRecipe.translation_recipe_steps.map(step => `
+              <li>${step.translated_instruction || ''}</li>
+            `).join('')}
+          </ol>
+          ${originalStepsHTML ? `
+            <div class="original-section">
+              <h5>${translations.original_instructions || '元の作り方'}</h5>
+              ${originalStepsHTML}
+            </div>
+          ` : ''}
+        </div>
+      `;
+      stepsEl.innerHTML = translatedStepsHTML;
+    }
+  }
+  
+  // UI要素を翻訳
+  if (translationRecipe.language_code) {
+    console.log('UI要素を翻訳中:', translationRecipe.language_code);
+    translateUI(translationRecipe.language_code);
+  }
+  
+  console.log('自動翻訳表示完了');
+}
+
+// 言語タグを削除して通常表示に戻す関数
+async function resetToOriginalLanguage() {
+  try {
+    const currentRecipeId = window.originalRecipeId || new URLSearchParams(window.location.search).get('id');
+    const { data: originalRecipe } = await sb.from('recipes').select('tags').eq('id', currentRecipeId).single();
+    
+    if (originalRecipe?.tags) {
+      // 翻訳タグを削除
+      const filteredTags = originalRecipe.tags.filter(tag => !tag.startsWith('翻訳:'));
+      
+      await sb.from('recipes')
+        .update({ tags: filteredTags })
+        .eq('id', currentRecipeId);
+      
+      console.log('言語タグを削除しました');
+      
+      // ページを再読み込みして通常表示に戻す
+      location.reload();
+    }
+  } catch (error) {
+    console.error('言語タグ削除エラー:', error);
+  }
+}
+
+// 翻訳データと元の日本語を分離して保存（新しいテーブル構造）
+async function saveCombinedRecipe(translatedData, language) {
+  // 元のレシピIDを取得（翻訳前のID）
+  const originalRecipeId = window.originalRecipeId || new URLSearchParams(window.location.search).get('id');
+  console.log('翻訳データ保存中 - 元のレシピID:', originalRecipeId);
+  console.log('window.originalRecipeId:', window.originalRecipeId);
+  console.log('URL param id:', new URLSearchParams(window.location.search).get('id'));
+  
+  if (!originalRecipeId) {
+    console.error('翻訳データ保存: originalRecipeIdが取得できません');
+    return;
+  }
+  
+  // 元のレシピデータを取得
+  const originalTitle = document.getElementById('recipeTitle')?.textContent?.trim() || '';
+  const originalDescription = document.getElementById('notes')?.textContent?.trim() || '';
+  
+  // 元の材料データを取得
+  const originalIngredients = Array.from(document.querySelectorAll('#ingredients .table tbody tr')).map(row => {
+    const cells = row.querySelectorAll('td');
+    return {
+      position: cells[0]?.textContent || '',
+      item: cells[1]?.textContent || '',
+      quantity: cells[2]?.textContent || '',
+      unit: cells[3]?.textContent || ''
+    };
+  });
+  
+  // 元の手順データを取得
+  const originalSteps = Array.from(document.querySelectorAll('#steps .step')).map(step => {
+    const number = step.querySelector('.step-number')?.textContent || '';
+    const text = step.querySelector('.step-text')?.textContent || '';
+    return { number, text };
+  });
+  
+  // 元のレシピのカテゴリーとタグを取得
+  console.log('元のレシピデータを取得中 - ID:', originalRecipeId);
+  if (!originalRecipeId) {
+    console.error('originalRecipeIdがnullです');
+    return;
+  }
+  const { data: originalRecipe } = await sb.from('recipes').select('category, tags').eq('id', originalRecipeId).single();
+  
+  // 翻訳レシピメインデータを作成
+  const translationRecipeData = {
+    original_recipe_id: originalRecipeId,
+    translated_title: translatedData.title,
+    original_title: originalTitle,
+    translated_description: translatedData.description,
+    original_description: originalDescription,
+    language_code: language,
+    category: originalRecipe?.category || '翻訳レシピ',
+    tags: [...(originalRecipe?.tags || []), '翻訳', '多言語'],
+    servings: 4
+  };
+  
+  console.log('翻訳レシピデータ:', translationRecipeData);
+  
+  // 翻訳レシピを保存
+  console.log('翻訳レシピデータを保存中:', translationRecipeData);
+  const { data: translationResult, error: translationError } = await sb
+    .from('translation_recipes')
+    .insert(translationRecipeData)
+    .select()
+    .single();
+    
+  if (translationError) {
+    console.error('翻訳レシピ保存エラー:', translationError);
+    // フォールバック: 既存のテーブル構造を使用
+    await saveCombinedRecipeFallback(translatedData, language, originalTitle, originalDescription, originalIngredients, originalSteps);
+    return;
+  }
+  
+  console.log('翻訳レシピ保存成功:', translationResult);
+  
+  const translationRecipeId = translationResult.id;
+  
+  // 元のレシピに翻訳言語タグを追加
+  try {
+    console.log('言語タグ追加中 - ID:', originalRecipeId);
+    if (!originalRecipeId) {
+      console.error('言語タグ追加: originalRecipeIdがnullです');
+      return;
+    }
+    const { data: originalRecipe } = await sb.from('recipes').select('tags').eq('id', originalRecipeId).single();
+    const currentTags = originalRecipe?.tags || [];
+    const languageTag = `翻訳:${language}`;
+    
+    // 既存の翻訳タグを削除して新しいタグを追加
+    const filteredTags = currentTags.filter(tag => !tag.startsWith('翻訳:'));
+    const newTags = [...filteredTags, languageTag];
+    
+    await sb.from('recipes')
+      .update({ tags: newTags })
+      .eq('id', originalRecipeId);
+    
+    console.log('元のレシピに言語タグを追加:', languageTag);
+  } catch (error) {
+    console.warn('言語タグ追加エラー:', error);
+  }
+  
+  // 翻訳材料を保存
+  if (translatedData.ingredients && translatedData.ingredients.length > 0) {
+    try {
+      const translationIngredients = translatedData.ingredients.map((ing, index) => ({
+        translation_recipe_id: translationRecipeId,
+        position: index + 1,
+        translated_item: ing.item || '',
+        original_item: originalIngredients[index]?.item || '',
+        quantity: ing.quantity || originalIngredients[index]?.quantity || '',
+        unit: ing.unit || originalIngredients[index]?.unit || '',
+        price: null
+      }));
+      
+      const { error: ingredientsError } = await sb
+        .from('translation_recipe_ingredients')
+        .insert(translationIngredients);
+        
+      if (ingredientsError) {
+        console.warn('翻訳材料保存エラー（スキップ）:', ingredientsError.message);
+      }
+    } catch (error) {
+      console.warn('翻訳材料保存でエラー（スキップ）:', error);
+    }
+  }
+  
+  // 翻訳手順を保存
+  if (translatedData.steps && translatedData.steps.length > 0) {
+    try {
+      const translationSteps = translatedData.steps.map((step, index) => ({
+        translation_recipe_id: translationRecipeId,
+        position: index + 1,
+        translated_instruction: step.text || '',
+        original_instruction: originalSteps[index]?.text || ''
+      }));
+      
+      const { error: stepsError } = await sb
+        .from('translation_recipe_steps')
+        .insert(translationSteps);
+        
+      if (stepsError) {
+        console.warn('翻訳手順保存エラー（スキップ）:', stepsError.message);
+      }
+    } catch (error) {
+      console.warn('翻訳手順保存でエラー（スキップ）:', error);
+    }
+  }
+}
+
+// フォールバック: 既存のテーブル構造を使用
+async function saveCombinedRecipeFallback(translatedData, language, originalTitle, originalDescription, originalIngredients, originalSteps) {
+  console.log('フォールバック: 既存のテーブル構造を使用');
+  
+  const currentRecipeId = new URLSearchParams(window.location.search).get('id');
+  
+  // 元のレシピのカテゴリーとタグを取得
+  const { data: originalRecipe } = await sb.from('recipes').select('category, tags').eq('id', currentRecipeId).single();
+  
+  // 既存のテーブル構造で保存
+  const combinedRecipeData = {
+    title: `${translatedData.title} （${originalTitle}）`,
+    notes: `翻訳版:\n${translatedData.description}\n\n元の日本語版:\n${originalDescription}`,
+    category: originalRecipe?.category || '翻訳レシピ',
+    tags: [...(originalRecipe?.tags || []), '翻訳', '多言語'],
+    servings: 4
+  };
+  
+  const { data: recipeResult, error: recipeError } = await sb
+    .from('recipes')
+    .insert(combinedRecipeData)
+    .select()
+    .single();
+    
+  if (recipeError) {
+    throw new Error('レシピ保存エラー: ' + recipeError.message);
+  }
+  
+  const newRecipeId = recipeResult.id;
+  
+  // 材料と手順の保存（既存の構造）
+  // ... 既存のコードをそのまま使用
+}
+
+// 表示形式そのまま保存（HTML形式）
+async function saveDisplayFormatRecipe(translatedData, language) {
+  const currentRecipeId = new URLSearchParams(window.location.search).get('id');
+  
+  // 元のレシピデータを取得
+  const originalTitle = document.getElementById('recipeTitle')?.textContent?.trim() || '';
+  const originalDescription = document.getElementById('notes')?.textContent?.trim() || '';
+  
+  // 現在の表示されているHTMLを取得
+  const translatedTitleHTML = document.getElementById('translatedTitle')?.innerHTML || '';
+  const notesHTML = document.getElementById('notes')?.innerHTML || '';
+  const ingredientsHTML = document.getElementById('ingredients')?.innerHTML || '';
+  const stepsHTML = document.getElementById('steps')?.innerHTML || '';
+  
+  // 表示形式そのままのレシピデータを作成
+  const displayFormatData = {
+    title: `${translatedData.title} （${originalTitle}）`,
+    notes: notesHTML, // 翻訳表示されたHTMLをそのまま保存
+    category: '翻訳レシピ',
+    tags: ['翻訳', '多言語', 'HTML形式'],
+    servings: 4,
+    display_format: 'html', // HTML形式であることを示すフラグ
+    language_code: language,
+    original_recipe_id: currentRecipeId
+  };
+  
+  console.log('表示形式レシピデータ:', displayFormatData);
+  
+  // レシピを保存
+  const { data: recipeResult, error: recipeError } = await sb
+    .from('recipes')
+    .insert(displayFormatData)
+    .select()
+    .single();
+    
+  if (recipeError) {
+    throw new Error('レシピ保存エラー: ' + recipeError.message);
+  }
+  
+  const newRecipeId = recipeResult.id;
+  
+  // 材料をHTML形式で保存（翻訳版と元の日本語版の両方）
+  if (ingredientsHTML) {
+    try {
+      // 翻訳版の材料テーブルから各行を抽出
+      const translatedIngredientRows = Array.from(document.querySelectorAll('#ingredients .translated-section .table tbody tr'));
+      const originalIngredientRows = Array.from(document.querySelectorAll('#ingredients .original-section .table tbody tr'));
+      
+      // 翻訳版の材料を保存
+      const translatedIngredientsData = translatedIngredientRows.map((row, index) => {
+        const cells = row.querySelectorAll('td');
+        return {
+          recipe_id: newRecipeId,
+          position: index + 1,
+          item: cells[1]?.textContent || '',
+          quantity: cells[2]?.textContent || '',
+          unit: cells[3]?.textContent || '',
+          price: null,
+          html_content: row.outerHTML // HTML形式も保存
+        };
+      });
+      
+      // 元の日本語版の材料を保存（位置をずらす）
+      const originalIngredientsData = originalIngredientRows.map((row, index) => {
+        const cells = row.querySelectorAll('td');
+        return {
+          recipe_id: newRecipeId,
+          position: translatedIngredientRows.length + index + 1,
+          item: cells[1]?.textContent || '',
+          quantity: cells[2]?.textContent || '',
+          unit: cells[3]?.textContent || '',
+          price: cells[4]?.textContent || null,
+          html_content: row.outerHTML // HTML形式も保存
+        };
+      });
+      
+      // 両方の材料データを結合して保存
+      const allIngredientsData = [...translatedIngredientsData, ...originalIngredientsData];
+      
+      const { error: ingredientsError } = await sb
+        .from('recipe_ingredients')
+        .insert(allIngredientsData);
+        
+      if (ingredientsError) {
+        console.warn('材料保存エラー（スキップ）:', ingredientsError.message);
+      }
+    } catch (error) {
+      console.warn('材料保存でエラー（スキップ）:', error);
+    }
+  }
+  
+  // 手順をHTML形式で保存（翻訳版と元の日本語版の両方）
+  if (stepsHTML) {
+    try {
+      // 翻訳版の手順から各ステップを抽出
+      const translatedStepElements = Array.from(document.querySelectorAll('#steps .translated-section ol li'));
+      const originalStepElements = Array.from(document.querySelectorAll('#steps .original-section ol li'));
+      
+      // 翻訳版の手順を保存
+      const translatedStepsData = translatedStepElements.map((step, index) => {
+        return {
+          recipe_id: newRecipeId,
+          position: index + 1,
+          instruction: step.textContent || '',
+          html_content: step.outerHTML // HTML形式も保存
+        };
+      });
+      
+      // 元の日本語版の手順を保存（位置をずらす）
+      const originalStepsData = originalStepElements.map((step, index) => {
+        return {
+          recipe_id: newRecipeId,
+          position: translatedStepElements.length + index + 1,
+          instruction: step.textContent || '',
+          html_content: step.outerHTML // HTML形式も保存
+        };
+      });
+      
+      // 両方の手順データを結合して保存
+      const allStepsData = [...translatedStepsData, ...originalStepsData];
+      
+      const { error: stepsError } = await sb
+        .from('recipe_steps')
+        .insert(allStepsData);
+        
+      if (stepsError) {
+        console.warn('手順保存エラー（スキップ）:', stepsError.message);
+      }
+    } catch (error) {
+      console.warn('手順保存でエラー（スキップ）:', error);
+    }
+  }
+  
+  // 翻訳タイトルも保存
+  if (translatedTitleHTML) {
+    try {
+      await sb.from('recipe_translations').insert({
+        recipe_id: newRecipeId,
+        language_code: language,
+        translated_title: translatedData.title,
+        html_content: translatedTitleHTML // HTML形式も保存
+      });
+    } catch (error) {
+      console.warn('翻訳タイトル保存エラー（スキップ）:', error);
+    }
+  }
+}
+
+// 翻訳タイトルのみ保存
+async function saveTranslatedTitle(translatedTitle, language) {
+  const currentRecipeId = new URLSearchParams(window.location.search).get('id');
+  
+  if (!currentRecipeId) {
+    throw new Error('レシピIDが見つかりません');
+  }
+  
+  try {
+    // 既存の翻訳を削除して新しい翻訳を挿入
+    await sb.from('recipe_translations').delete().eq('recipe_id', currentRecipeId);
+    await sb.from('recipe_translations').insert({
+      recipe_id: currentRecipeId,
+      language_code: language,
+      translated_title: translatedTitle
+    });
+  } catch (error) {
+    console.error('翻訳タイトル保存エラー:', error);
+    throw error;
+  }
+}
+
+
+// 翻訳レシピ保存関数
+async function saveTranslatedRecipe(translatedData, saveBoth = false) {
+  const currentRecipeId = new URLSearchParams(window.location.search).get('id');
+  
+  // 元のレシピのカテゴリーとタグを取得
+  const { data: originalRecipe } = await sb.from('recipes').select('category, tags').eq('id', currentRecipeId).single();
+  
+  // 翻訳版のレシピデータを作成
+  const recipeData = {
+    title: translatedData.title,
+    notes: translatedData.description, // descriptionではなくnotesを使用
+    category: originalRecipe?.category || '翻訳レシピ', // 元のカテゴリーを継承
+    tags: [...(originalRecipe?.tags || []), '翻訳'], // 元のタグに翻訳タグを追加
+    servings: 4 // デフォルト値
+  };
+  
+  // レシピを保存
+  const { data: recipeResult, error: recipeError } = await sb
+    .from('recipes')
+    .insert(recipeData)
+    .select()
+    .single();
+    
+  if (recipeError) {
+    throw new Error('レシピ保存エラー: ' + recipeError.message);
+  }
+  
+  const newRecipeId = recipeResult.id;
+  console.log('翻訳レシピ保存成功:', recipeResult);
+  
+  // 材料を保存
+  if (translatedData.ingredients && translatedData.ingredients.length > 0) {
+    try {
+      const ingredientsData = translatedData.ingredients.map((ing, index) => ({
+        recipe_id: newRecipeId,
+        position: ing.position || (index + 1),
+        item: ing.item || '',
+        quantity: ing.quantity || '',
+        unit: ing.unit || '',
+        price: null // 翻訳レシピでは価格は設定しない
+      }));
+      
+      const { error: ingredientsError } = await sb
+        .from('recipe_ingredients')
+        .insert(ingredientsData);
+        
+      if (ingredientsError) {
+        console.warn('材料保存エラー（スキップ）:', ingredientsError.message);
+        console.warn('材料データ:', ingredientsData);
+        // 材料保存エラーは警告として記録するが、処理を続行
+      }
+    } catch (error) {
+      console.warn('材料保存でエラー（スキップ）:', error);
+    }
+  }
+  
+  // 手順を保存
+  if (translatedData.steps && translatedData.steps.length > 0) {
+    try {
+      const stepsData = translatedData.steps.map((step, index) => ({
+        recipe_id: newRecipeId,
+        position: step.number || (index + 1),
+        instruction: step.text || '' // textではなくinstructionを使用
+      }));
+      
+      const { error: stepsError } = await sb
+        .from('recipe_steps')
+        .insert(stepsData);
+        
+      if (stepsError) {
+        console.warn('手順保存エラー（スキップ）:', stepsError.message);
+        console.warn('手順データ:', stepsData);
+        // 手順保存エラーは警告として記録するが、処理を続行
+      }
+    } catch (error) {
+      console.warn('手順保存でエラー（スキップ）:', error);
+    }
+  }
+  
+  // 元のレシピの翻訳タイトルも更新（saveBothの場合）
+  if (saveBoth && currentRecipeId) {
+    try {
+      const language = document.getElementById('translateLanguage')?.value || 'fr';
+      
+      // 既存の翻訳を削除して新しい翻訳を挿入
+      await sb.from('recipe_translations').delete().eq('recipe_id', currentRecipeId);
+      await sb.from('recipe_translations').insert({
+        recipe_id: currentRecipeId,
+        language_code: language,
+        translated_title: translatedData.title
+      });
+    } catch (error) {
+      console.warn('翻訳タイトル保存エラー（スキップ）:', error);
+      // 翻訳タイトル保存エラーは警告として記録するが、処理を続行
+    }
+    
+    // 元のレシピにも翻訳タグを追加
+    try {
+      const { data: originalRecipe } = await sb.from('recipes').select('tags').eq('id', currentRecipeId).single();
+      if (originalRecipe && originalRecipe.tags) {
+        const updatedTags = [...originalRecipe.tags];
+        if (!updatedTags.includes('翻訳')) {
+          updatedTags.push('翻訳');
+        }
+        if (!updatedTags.includes('多言語')) {
+          updatedTags.push('多言語');
+        }
+        
+        await sb.from('recipes').update({ tags: updatedTags }).eq('id', currentRecipeId);
+        console.log('元のレシピに翻訳タグを追加しました');
+      }
+    } catch (error) {
+      console.warn('元のレシピタグ更新でエラー（スキップ）:', error);
+    }
+  }
+}
+
+// ===== PDF/CSV出力機能 =====
+
+// 日本語フォント読み込み関数（改良版）
+async function loadJapaneseFont(doc) {
+  return new Promise((resolve) => {
+    try {
+      // 日本語対応フォントの設定
+      // まず、利用可能なフォントを確認
+      const availableFonts = doc.getFontList();
+      console.log('利用可能なフォント:', availableFonts);
+      
+      // 日本語対応のフォントを試す
+      const japaneseFonts = ['NotoSansJP', 'NotoSerifJP', 'HiraginoSans', 'YuGothic', 'Meiryo'];
+      let fontSet = false;
+      
+      for (const fontName of japaneseFonts) {
+        if (availableFonts[fontName]) {
+          doc.setFont(fontName);
+          console.log(`日本語フォント設定完了: ${fontName}`);
+          fontSet = true;
+          break;
+        }
+      }
+      
+      if (!fontSet) {
+        // フォールバック: デフォルトフォントを使用し、日本語文字を安全に処理
+        doc.setFont('helvetica');
+        console.log('デフォルトフォントを使用（日本語文字は安全に処理）');
+      }
+      
+      resolve();
+    } catch (error) {
+      console.warn('フォント設定エラー:', error);
+      doc.setFont('helvetica');
+      resolve();
+    }
+  });
+}
+
+// HTMLからCanvasを経由してPDFを生成（日本語対応・改善されたレイアウト） - 新しいV2関数にリダイレクト
+async function generatePDFFromHTML(doc, title, ingredients, steps, notes, imageUrl) {
+  console.log('🔄 Old generatePDFFromHTML called, redirecting to V2');
+  return await generatePDFFromHTMLV2(doc, title, ingredients, steps, notes, imageUrl);
+}
+
+// HTMLエスケープ関数は utils.js で定義済み
+
+// PDF出力機能
+async function exportToPDF() {
+  console.log('🚀 PDF出力開始');
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    console.log('✅ jsPDF初期化完了');
+    
+    // 日本語フォント設定（文字化け回避）
+    // NotoSansJPフォントを使用（Google Fontsから読み込み）
+    try {
+      // 日本語フォントを動的に読み込み
+      await loadJapaneseFont(doc);
+    } catch (fontError) {
+      console.warn('日本語フォントの読み込みに失敗、デフォルトフォントを使用:', fontError);
+      // フォールバック: デフォルトフォントを使用
+      doc.setFont('helvetica');
+    }
+    
+    // 現在のレシピデータを取得
+    const recipeTitle = document.getElementById('recipeTitle')?.textContent || 'レシピ';
+    const recipeNotes = document.getElementById('notes')?.textContent || '';
+    
+    // 材料データをより確実に取得（複数のセレクターを試す）
+    const ingredients = [];
+    
+    // 複数のセレクターパターンを試す（より包括的）
+    const ingredientSelectors = [
+      '#ingredients .ingredient-row',
+      '#ingredients tr',
+      '#ingredients .table-row',
+      '.ingredients-table tr',
+      '.ingredients-table .ingredient-row',
+      '.ingredients tr',
+      '.ingredients .row',
+      'table.ingredients tr',
+      'table.ingredients .ingredient-row',
+      '.recipe-ingredients tr',
+      '.recipe-ingredients .ingredient-row',
+      'table tr',
+      '.table tr',
+      'tbody tr',
+      '.ingredient-row',
+      '.ingredient-item',
+      '.material-row',
+      '.material-item'
+    ];
+    
+    let ingredientRows = [];
+    for (const selector of ingredientSelectors) {
+      ingredientRows = document.querySelectorAll(selector);
+      if (ingredientRows.length > 0) {
+        console.log(`材料セレクター "${selector}" で ${ingredientRows.length} 行を発見`);
+        break;
+      }
+    }
+    
+    console.log('材料行数:', ingredientRows.length);
+    
+    // 材料が見つからない場合の追加デバッグ
+    if (ingredientRows.length === 0) {
+      console.warn('材料が見つかりません。利用可能な要素を確認中...');
+      
+      // ページ内のすべてのテーブル要素を確認
+      const allTables = document.querySelectorAll('table');
+      console.log('ページ内のテーブル数:', allTables.length);
+      
+      allTables.forEach((table, index) => {
+        const rows = table.querySelectorAll('tr');
+        console.log(`テーブル${index + 1}: ${rows.length}行`);
+        if (rows.length > 0) {
+          console.log('最初の行:', rows[0].textContent);
+        }
+      });
+      
+      // 材料関連の要素を確認
+      const ingredientElements = document.querySelectorAll('[class*="ingredient"], [class*="material"], [id*="ingredient"], [id*="material"]');
+      console.log('材料関連要素数:', ingredientElements.length);
+      ingredientElements.forEach((el, index) => {
+        console.log(`材料関連要素${index + 1}:`, el.className, el.id, el.textContent.substring(0, 50));
+      });
+    }
+    
+    ingredientRows.forEach((row, index) => {
+      // テーブル構造を確認して正しいセレクターを使用
+      const cells = row.querySelectorAll('td');
+      console.log(`材料行${index + 1}のセル数:`, cells.length);
+      
+      if (cells.length >= 3) {
+        // 通常のテーブル構造: 材料名, 分量, 単位
+        let item = cells[0] ? cells[0].textContent.trim() : '';
+        const quantity = cells[1] ? cells[1].textContent.trim() : '';
+        const unit = cells[2] ? cells[2].textContent.trim() : '';
+        
+        // 材料名から番号を削除（例: "1. 生牡蠣" -> "生牡蠣"）
+        item = item.replace(/^\d+\.?\s*/, '').trim();
+        
+        // 材料名に分量が含まれている場合の処理（例: "生牡蠣6" -> item: "生牡蠣", quantity: "6"）
+        if (!quantity && !unit && item) {
+          const itemMatch = item.match(/^(.+?)([0-9\/\.]+)$/);
+          if (itemMatch) {
+            item = itemMatch[1].trim();
+            const extractedQuantity = itemMatch[2].trim();
+            if (!quantity) quantity = extractedQuantity;
+          }
+        }
+        
+        console.log(`材料${index + 1}:`, { item, quantity, unit });
+        
+        if (item) {
+          ingredients.push({ item, quantity, unit });
+        }
+      } else if (cells.length === 2) {
+        // 2セル構造: 材料名, 分量+単位
+        let item = cells[0] ? cells[0].textContent.trim() : '';
+        const amountText = cells[1] ? cells[1].textContent.trim() : '';
+        
+        // 材料名から番号を削除（例: "1. 生牡蠣" -> "生牡蠣"）
+        item = item.replace(/^\d+\.?\s*/, '').trim();
+        
+        // 分量と単位を分離
+        let quantity = '', unit = '';
+        if (amountText) {
+          // 数字と単位を分離（例: "100g" -> quantity: "100", unit: "g"）
+          const match = amountText.match(/^([0-9\/\.]+)(.*)$/);
+          if (match) {
+            quantity = match[1];
+            unit = match[2];
+          } else {
+            // 分離できない場合は全体を分量として扱う
+            quantity = amountText;
+          }
+        }
+        
+        console.log(`材料${index + 1} (2セル):`, { item, quantity, unit, original: amountText });
+        
+        if (item) {
+          ingredients.push({ item, quantity, unit });
+        }
+      } else {
+        // 複数のセレクターパターンを試す（フォールバック）
+        const itemSelectors = ['.ing-item', '.ingredient-name', '.item'];
+        const quantitySelectors = ['.ing-quantity', '.quantity'];
+        const unitSelectors = ['.ing-unit', '.unit'];
+        
+        let itemEl = null, quantityEl = null, unitEl = null;
+        
+        for (const selector of itemSelectors) {
+          itemEl = row.querySelector(selector);
+          if (itemEl) break;
+        }
+        
+        for (const selector of quantitySelectors) {
+          quantityEl = row.querySelector(selector);
+          if (quantityEl) break;
+        }
+        
+        for (const selector of unitSelectors) {
+          unitEl = row.querySelector(selector);
+          if (unitEl) break;
+        }
+        
+        let item = itemEl ? itemEl.textContent.trim() : '';
+        const quantity = quantityEl ? quantityEl.textContent.trim() : '';
+        const unit = unitEl ? unitEl.textContent.trim() : '';
+        
+        // 材料名から番号を削除（例: "1. 生牡蠣" -> "生牡蠣"）
+        item = item.replace(/^\d+\.?\s*/, '').trim();
+        
+        console.log(`材料${index + 1} (フォールバック):`, { item, quantity, unit });
+        
+        if (item) {
+          ingredients.push({ item, quantity, unit });
+        }
+      }
+    });
+    
+    // 手順データをより確実に取得（<ol><li>構造に対応）
+    const steps = [];
+    
+    // <ol id="steps">内の<li>要素を取得
+    const stepElements = document.querySelectorAll('#steps li');
+    console.log('手順要素数:', stepElements.length);
+    
+    stepElements.forEach((li, index) => {
+      const stepText = li.textContent.trim();
+      console.log(`手順${index + 1}:`, stepText);
+      
+      // "未登録"や空のテキストは除外
+      if (stepText && stepText !== '未登録' && stepText.length > 0) {
+        steps.push(stepText);
+      }
+    });
+    
+    console.log('取得した材料:', ingredients);
+    console.log('取得した手順:', steps);
+    
+    // 材料が取得できなかった場合のフォールバック処理
+    if (ingredients.length === 0) {
+      console.warn('材料データが取得できませんでした。追加のセレクターを試します...');
+      
+      // より基本的なセレクターを試す
+      const fallbackSelectors = [
+        'tr',
+        'div[class*="ingredient"]',
+        'div[class*="material"]',
+        'li',
+        'p',
+        'span[class*="ingredient"]',
+        'span[class*="material"]'
+      ];
+      
+      for (const selector of fallbackSelectors) {
+        const elements = document.querySelectorAll(selector);
+        console.log(`フォールバックセレクター "${selector}": ${elements.length}個の要素`);
+        
+        elements.forEach((el, index) => {
+          const text = el.textContent.trim();
+          // 材料らしいテキストをチェック（数字と単位が含まれている）
+          if (text && text.match(/[0-9]/) && text.match(/[a-zA-Z\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/) && text.length < 100) {
+            console.log(`材料候補${index + 1}:`, text);
+            
+            // 材料名と分量を分離
+            const match = text.match(/^(.+?)([0-9\/\.]+)([a-zA-Z\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]*)$/);
+            if (match) {
+              const item = match[1].trim().replace(/^\d+\.?\s*/, '');
+              const quantity = match[2].trim();
+              const unit = match[3].trim();
+              
+              if (item && item.length > 0) {
+                ingredients.push({ item, quantity, unit });
+                console.log('フォールバックで抽出した材料:', { item, quantity, unit });
+              }
+            }
+          }
+        });
+        
+        if (ingredients.length > 0) {
+          console.log(`フォールバックセレクター "${selector}" で材料を取得しました`);
+          break;
+        }
+      }
+      
+      // それでも材料が見つからない場合は手順から抽出
+      if (ingredients.length === 0) {
+        console.warn('手順から材料を抽出します...');
+        
+        steps.forEach(step => {
+          // 手順から材料と分量を抽出（例: "バター10g"、"生クリーム40ml"）
+          const materialMatches = step.match(/([^0-9\s]+)([0-9\/\.]+)([a-zA-Z\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]+)/g);
+          if (materialMatches) {
+            materialMatches.forEach(match => {
+              const parts = match.match(/([^0-9\s]+)([0-9\/\.]+)([a-zA-Z\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]+)/);
+              if (parts && parts.length >= 4) {
+                const item = parts[1].trim();
+                const quantity = parts[2].trim();
+                const unit = parts[3].trim();
+                
+                // 重複チェック
+                const exists = ingredients.some(ing => ing.item === item);
+                if (!exists && item.length > 0) {
+                  ingredients.push({ item, quantity, unit });
+                  console.log('手順から抽出した材料:', { item, quantity, unit });
+                }
+              }
+            });
+          }
+        });
+      }
+    }
+    
+    // 改善されたテキストベースのPDF生成（文字化け回避）
+    let pdfContent = '';
+    
+    // タイトル
+    pdfContent += recipeTitle + '\n';
+    pdfContent += '='.repeat(recipeTitle.length) + '\n\n';
+    
+    // メモ
+    if (recipeNotes) {
+      pdfContent += '【メモ・コツ】\n';
+      pdfContent += recipeNotes + '\n\n';
+    }
+    
+    // 材料（単位を正しく表示、間隔を調整、番号なし）
+    pdfContent += '【材料】\n';
+    pdfContent += '-'.repeat(40) + '\n';
+    ingredients.forEach(ingredient => {
+      const item = (ingredient.item || '').trim();
+      const quantity = (ingredient.quantity || '').trim();
+      const unit = (ingredient.unit || '').trim();
+      
+      // 分量と単位を適切に組み合わせて表示
+      let amount = '';
+      if (quantity && unit) {
+        amount = `${quantity}${unit}`;
+      } else if (quantity) {
+        amount = quantity;
+      } else if (unit) {
+        amount = unit;
+      }
+      
+      // 材料名と分量の間に十分な間隔を設ける（番号なし）
+      if (amount) {
+        // 材料名を左寄せ、分量を右寄せで表示（より広い間隔）
+        const maxItemLength = 35;
+        const itemPadded = item.padEnd(maxItemLength, ' ');
+        pdfContent += `・${itemPadded} ${amount}\n`;
+      } else {
+        pdfContent += `・${item}\n`;
+      }
+    });
+    pdfContent += '\n';
+    
+    // 作り方
+    pdfContent += '【作り方】\n';
+    pdfContent += '-'.repeat(30) + '\n';
+    steps.forEach((step, index) => {
+      pdfContent += `${index + 1}. ${step}\n\n`;
+    });
+    
+    // 画像URLを取得（データベースから取得したレシピデータを直接使用）
+    let imageUrl = null;
+    
+    // 現在のレシピIDを取得
+    const currentRecipeId = new URLSearchParams(window.location.search).get('id');
+    if (currentRecipeId) {
+      try {
+        // データベースからレシピデータを再取得してimage_urlを取得
+        const { data: recipeData } = await sb.from('recipes').select('image_url').eq('id', currentRecipeId).single();
+        if (recipeData && recipeData.image_url && recipeData.image_url.trim()) {
+          imageUrl = recipeData.image_url;
+          console.log('🖼️ レシピ画像URL発見 (データベース直接取得):', imageUrl);
+        }
+      } catch (error) {
+        console.warn('⚠️ データベースから画像URL取得に失敗:', error);
+      }
+    }
+    
+    // フォールバック: DOM要素から取得
+    if (!imageUrl) {
+      const recipeImageElement = document.getElementById('recipeImage');
+      if (recipeImageElement && recipeImageElement.src && recipeImageElement.src.trim()) {
+        imageUrl = recipeImageElement.src;
+        console.log('🖼️ レシピ画像URL発見 (DOM要素取得):', imageUrl);
+      }
+    }
+    
+    if (!imageUrl) {
+      console.log('🖼️ レシピ画像URLが見つかりませんでした');
+    }
+    
+    // HTMLからCanvasを経由してPDFを生成（日本語対応）
+    try {
+      console.log('🔄 generatePDFFromHTMLV2呼び出し開始');
+      await generatePDFFromHTMLV2(doc, recipeTitle, ingredients, steps, recipeNotes, imageUrl);
+      console.log('✅ generatePDFFromHTMLV2完了');
+    } catch (htmlError) {
+      console.warn('HTML to PDF変換に失敗、テキストベースにフォールバック:', htmlError);
+      
+      // フォールバック: テキストベースのPDF生成
+      doc.setFontSize(12);
+      const lines = pdfContent.split('\n');
+      let yPosition = 20;
+      const lineHeight = 7;
+      
+      lines.forEach(line => {
+        if (yPosition > 280) {
+          doc.addPage();
+          yPosition = 20;
+        }
+        
+        // 文字化けを防ぐため、安全な文字のみを使用
+        const safeLine = line
+          .replace(/[^\x20-\x7E\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\uFF00-\uFFEF]/g, '?') // 未対応文字を?に置換
+          .replace(/\s+/g, ' ') // 連続する空白を1つに
+          .trim(); // 前後の空白を削除
+        
+        if (safeLine.length > 0) {
+          try {
+            // 行が長すぎる場合は分割
+            const maxLength = 80;
+            if (safeLine.length > maxLength) {
+              const words = safeLine.split(' ');
+              let currentLine = '';
+              
+              words.forEach(word => {
+                if ((currentLine + ' ' + word).length > maxLength) {
+                  if (currentLine.length > 0) {
+                    doc.text(currentLine, 20, yPosition);
+                    yPosition += lineHeight;
+                    if (yPosition > 280) {
+                      doc.addPage();
+                      yPosition = 20;
+                    }
+                  }
+                  currentLine = word;
+                } else {
+                  currentLine += (currentLine.length > 0 ? ' ' : '') + word;
+                }
+              });
+              
+              if (currentLine.length > 0) {
+                doc.text(currentLine, 20, yPosition);
+                yPosition += lineHeight;
+              }
+            } else {
+              doc.text(safeLine, 20, yPosition);
+              yPosition += lineHeight;
+            }
+          } catch (error) {
+            console.warn('PDF文字出力エラー:', error, '行:', safeLine);
+            // エラーが出た場合はスキップ
+          }
+        } else {
+          // 空行の場合は改行のみ
+          yPosition += lineHeight;
+        }
+      });
+    }
+    
+    // フッター
+    const totalPages = doc.internal.getNumberOfPages();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.text(`ページ ${i} / ${totalPages}`, pageWidth - 30, pageHeight - 10);
+    }
+    
+    // PDFをダウンロード
+    const cleanTitle = recipeTitle
+      .replace(/[^\w\s\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '') // 英数字、空白、ひらがな、カタカナ、漢字のみ保持
+      .replace(/\s+/g, '_') // 空白をアンダースコアに置換
+      .trim();
+    const fileName = `${cleanTitle}.pdf`;
+    doc.save(fileName);
+    
+    console.log('PDF出力完了:', fileName);
+    
+    // デバッグ用のログ
+    console.log('PDF内容プレビュー:');
+    console.log('タイトル:', recipeTitle);
+    console.log('材料数:', ingredients.length);
+    console.log('手順数:', steps.length);
+    console.log('最初の手順:', steps[0] || 'なし');
+    
+    // 材料の単位表示状況をチェック
+    console.log('材料詳細:');
+    ingredients.forEach((ingredient, index) => {
+      console.log(`材料${index + 1}:`, {
+        item: ingredient.item,
+        quantity: ingredient.quantity,
+        unit: ingredient.unit,
+        combined: `${ingredient.quantity || ''}${ingredient.unit || ''}`
+      });
+    });
+    
+  } catch (error) {
+    console.error('PDF出力エラー:', error);
+    alert('PDF出力に失敗しました: ' + error.message);
+  }
+}
+
+// CSV出力機能
+async function exportToCSV() {
+  try {
+    // 現在のレシピデータを取得
+    const recipeTitle = document.getElementById('recipeTitle')?.textContent || 'レシピ';
+    const recipeNotes = document.getElementById('notes')?.textContent || '';
+    
+    // 材料データをより確実に取得（複数のセレクターを試す）
+    const ingredients = [];
+    
+    // 複数のセレクターパターンを試す
+    const ingredientSelectors = [
+      '#ingredients .ingredient-row',
+      '#ingredients tr',
+      '#ingredients .table-row',
+      '.ingredients-table tr',
+      '.ingredients-table .ingredient-row',
+      '.ingredients tr',
+      '.ingredients .row',
+      'table.ingredients tr',
+      'table.ingredients .ingredient-row',
+      '.recipe-ingredients tr',
+      '.recipe-ingredients .ingredient-row'
+    ];
+    
+    let ingredientRows = [];
+    for (const selector of ingredientSelectors) {
+      ingredientRows = document.querySelectorAll(selector);
+      if (ingredientRows.length > 0) {
+        console.log(`CSV出力 - 材料セレクター "${selector}" で ${ingredientRows.length} 行を発見`);
+        break;
+      }
+    }
+    
+    console.log('CSV出力 - 材料行数:', ingredientRows.length);
+    
+    ingredientRows.forEach((row, index) => {
+      // テーブル構造を確認して正しいセレクターを使用
+      const cells = row.querySelectorAll('td');
+      console.log(`CSV出力 - 材料行${index + 1}のセル数:`, cells.length);
+      
+      if (cells.length >= 3) {
+        // 通常のテーブル構造: 材料名, 分量, 単位
+        const item = cells[0] ? cells[0].textContent.trim() : '';
+        const quantity = cells[1] ? cells[1].textContent.trim() : '';
+        const unit = cells[2] ? cells[2].textContent.trim() : '';
+        
+        console.log(`CSV出力 - 材料${index + 1}:`, { item, quantity, unit });
+        
+        if (item) {
+          ingredients.push({ item, quantity, unit });
+        }
+      } else {
+        // 複数のセレクターパターンを試す（フォールバック）
+        const itemSelectors = ['.ing-item', '.ingredient-name', '.item'];
+        const quantitySelectors = ['.ing-quantity', '.quantity'];
+        const unitSelectors = ['.ing-unit', '.unit'];
+        
+        let itemEl = null, quantityEl = null, unitEl = null;
+        
+        for (const selector of itemSelectors) {
+          itemEl = row.querySelector(selector);
+          if (itemEl) break;
+        }
+        
+        for (const selector of quantitySelectors) {
+          quantityEl = row.querySelector(selector);
+          if (quantityEl) break;
+        }
+        
+        for (const selector of unitSelectors) {
+          unitEl = row.querySelector(selector);
+          if (unitEl) break;
+        }
+        
+        const item = itemEl ? itemEl.textContent.trim() : '';
+        const quantity = quantityEl ? quantityEl.textContent.trim() : '';
+        const unit = unitEl ? unitEl.textContent.trim() : '';
+        
+        console.log(`CSV出力 - 材料${index + 1} (フォールバック):`, { item, quantity, unit });
+        
+        if (item) {
+          ingredients.push({ item, quantity, unit });
+        }
+      }
+    });
+    
+    // 手順データをより確実に取得（<ol><li>構造に対応）
+    const steps = [];
+    
+    // <ol id="steps">内の<li>要素を取得
+    const stepElements = document.querySelectorAll('#steps li');
+    console.log('CSV出力 - 手順要素数:', stepElements.length);
+    
+    stepElements.forEach((li, index) => {
+      const stepText = li.textContent.trim();
+      console.log(`CSV出力 - 手順${index + 1}:`, stepText);
+      
+      // "未登録"や空のテキストは除外
+      if (stepText && stepText !== '未登録' && stepText.length > 0) {
+        steps.push(stepText);
+      }
+    });
+    
+    console.log('CSV出力 - 取得した材料:', ingredients);
+    console.log('CSV出力 - 取得した手順:', steps);
+    
+    // データが空の場合の警告
+    if (ingredients.length === 0) {
+      console.warn('材料データが取得できませんでした');
+    }
+    if (steps.length === 0) {
+      console.warn('手順データが取得できませんでした');
+    }
+    
+    // CSVデータを構築（より整理された形式）
+    let csvContent = '';
+    
+    // レシピ基本情報
+    csvContent += 'レシピ名,メモ\n';
+    csvContent += `"${recipeTitle.replace(/"/g, '""')}","${recipeNotes.replace(/"/g, '""')}"\n\n`;
+    
+    // 材料情報
+    csvContent += '材料名,分量,単位\n';
+    ingredients.forEach(ingredient => {
+      const item = ingredient.item.replace(/"/g, '""');
+      const quantity = ingredient.quantity.replace(/"/g, '""');
+      const unit = ingredient.unit.replace(/"/g, '""');
+      csvContent += `"${item}","${quantity}","${unit}"\n`;
+    });
+    
+    // 空行で区切り
+    csvContent += '\n';
+    
+    // 作り方
+    csvContent += '手順番号,作り方\n';
+    steps.forEach((step, index) => {
+      const stepText = step.replace(/"/g, '""');
+      csvContent += `${index + 1},"${stepText}"\n`;
+    });
+    
+    // BOMを追加してUTF-8エンコーディングを明示
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    
+    // ダウンロードリンクを作成
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${recipeTitle.replace(/[^\w\s]/gi, '')}_レシピ.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    console.log('CSV出力完了');
+    
+  } catch (error) {
+    console.error('CSV出力エラー:', error);
+    alert('CSV出力に失敗しました: ' + error.message);
+  }
+}
+
+// イベントリスナーを追加
+document.addEventListener('DOMContentLoaded', () => {
+  // PDF出力ボタン
+  const pdfBtn = document.querySelector('.js-export-pdf');
+  if (pdfBtn) {
+    pdfBtn.addEventListener('click', exportToPDF);
+  }
+  
+  // CSV出力ボタン
+  const csvBtn = document.querySelector('.js-export-csv');
+  if (csvBtn) {
+    csvBtn.addEventListener('click', exportToCSV);
+  }
+  
+  // 読みやすいテキスト表示ボタン
+  const readableTextBtn = document.querySelector('.js-show-readable-text');
+  if (readableTextBtn) {
+    readableTextBtn.addEventListener('click', () => {
+      if (window.currentRecipe) {
+        window.showReadableText(window.currentRecipe);
+      } else {
+        alert('レシピデータが読み込まれていません。');
+      }
+    });
+  }
+  
+  // 読みやすいテキストモーダルのイベントリスナー
+  const readableTextModal = document.getElementById('readableTextModal');
+  const readableTextCloseBtn = document.getElementById('readableTextCloseBtn');
+  const readableTextCloseBtn2 = document.getElementById('readableTextCloseBtn2');
+  const readableTextCopyBtn = document.getElementById('readableTextCopyBtn');
+  const readableTextEditBtn = document.getElementById('readableTextEditBtn');
+  const readableTextSaveBtn = document.getElementById('readableTextSaveBtn');
+  const readableTextCancelBtn = document.getElementById('readableTextCancelBtn');
+  
+  if (readableTextCloseBtn) {
+    readableTextCloseBtn.addEventListener('click', window.closeReadableTextModal);
+  }
+  if (readableTextCloseBtn2) {
+    readableTextCloseBtn2.addEventListener('click', window.closeReadableTextModal);
+  }
+  if (readableTextCopyBtn) {
+    readableTextCopyBtn.addEventListener('click', window.copyReadableText);
+  }
+  if (readableTextEditBtn) {
+    readableTextEditBtn.addEventListener('click', window.toggleReadableTextEdit);
+  }
+  if (readableTextSaveBtn) {
+    readableTextSaveBtn.addEventListener('click', window.saveReadableText);
+  }
+  if (readableTextCancelBtn) {
+    readableTextCancelBtn.addEventListener('click', window.cancelReadableTextEdit);
+  }
+  if (readableTextModal) {
+    readableTextModal.addEventListener('click', (e) => {
+      if (e.target === readableTextModal) {
+        window.closeReadableTextModal();
+      }
+    });
+  }
+  
+  // レシピ表示の初期化
+  initRecipeView();
+});
+</script>
+</body>
+</html>
