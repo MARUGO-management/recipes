@@ -8,10 +8,12 @@ supabase/.env.local
 # API Keys and Secrets
 config.js
 **/config.js
-**/*config*.js
 **/secrets/**
 **/*secret*
 **/*key*
+
+# GitHub Pages用設定ファイルは除外しない
+!app-config.js
 
 # Node modules
 node_modules/
