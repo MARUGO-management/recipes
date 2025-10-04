@@ -200,6 +200,116 @@
       box-shadow: none;
     }
     
+    .button-group {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    
+    .button-group button {
+      flex: 1;
+      min-width: 140px;
+    }
+    
+    .btn.secondary {
+      background: linear-gradient(135deg, #64748b, #475569);
+      color: white;
+    }
+    
+    .btn.secondary:hover:not(:disabled) {
+      background: linear-gradient(135deg, #475569, #334155);
+      box-shadow: 0 15px 35px rgba(100, 116, 139, 0.25);
+    }
+    
+    /* モーダルスタイル */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    
+    .modal-content {
+      background: var(--bg-surface);
+      border-radius: 16px;
+      box-shadow: 0 20px 45px rgba(15, 23, 42, 0.3);
+      max-width: 500px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+    
+    .modal-title {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+    
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: var(--text-secondary);
+      padding: 0.25rem;
+      border-radius: 4px;
+      transition: color 0.2s ease;
+    }
+    
+    .modal-close:hover {
+      color: var(--text-primary);
+    }
+    
+    .modal-body {
+      padding: 1.5rem;
+    }
+    
+    .modal-footer {
+      padding: 1rem 1.5rem;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: flex-end;
+    }
+    
+    .image-upload-section {
+      text-align: center;
+      padding: 2rem;
+      border: 2px dashed var(--border-color);
+      border-radius: 12px;
+      background: var(--bg-primary);
+    }
+    
+    .btn.ghost {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border-color);
+    }
+    
+    .btn.ghost:hover:not(:disabled) {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      box-shadow: none;
+    }
+    
+    .btn.primary {
+      background: linear-gradient(135deg, var(--accent-primary), #4f46e5);
+      color: white;
+    }
+    
     .status {
       display: flex;
       align-items: center;
@@ -626,9 +736,14 @@
           </div>
         </label>
 
-        <button type="submit" id="importButton">
-          <i class="fa-solid fa-download"></i> レシピを取得
-        </button>
+        <div class="button-group">
+          <button type="submit" id="importButton">
+            <i class="fa-solid fa-download"></i> レシピを取得
+          </button>
+          <button type="button" id="imageImportBtn" class="btn secondary">
+            <i class="fas fa-camera"></i> 画像解析
+          </button>
+        </div>
       </form>
 
       <div class="status" id="statusRow"></div>
@@ -729,6 +844,49 @@
     </div>
   </main>
 
+  <!-- 画像解析モーダル -->
+  <div id="image-import-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">画像からレシピを抽出</h2>
+        <button id="image-import-modal-close-btn" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="image-upload-section" id="uploadArea">
+          <i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: #666; margin-bottom: 1rem;"></i>
+          <p>レシピ画像をアップロードしてください</p>
+          <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 1rem;">
+            <button type="button" id="fileSelectBtn" class="btn primary">
+              <i class="fas fa-folder-open"></i> ファイルから選択
+            </button>
+            <button type="button" id="cameraBtn" class="btn secondary">
+              <i class="fas fa-camera"></i> カメラで撮影
+            </button>
+          </div>
+          <input type="file" id="imageInput" accept="image/*" style="display: none;">
+          <input type="file" id="cameraInput" accept="image/*" capture="user" style="display: none;">
+        </div>
+        
+        <div id="previewArea" style="display: none; text-align: center; margin-top: 1rem;">
+          <img id="previewImage" class="image-preview" alt="プレビュー" style="max-width: 100%; max-height: 300px; border-radius: 8px;">
+          <div style="margin-top: 1rem;">
+            <button type="button" id="analyzeButton" class="btn" type="button">
+              <i class="fas fa-search"></i> 解析してレシピを抽出
+            </button>
+            <button type="button" id="clearImageButton" class="btn ghost">
+              <i class="fas fa-trash"></i> クリア
+            </button>
+          </div>
+        </div>
+        
+        <div id="imageMessageArea" style="margin-top: 1rem;"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="imageImportCancelBtn" class="btn ghost" type="button">閉じる</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const statusRow = document.getElementById('statusRow');
     const resultsGrid = document.getElementById('resultsGrid');
@@ -737,6 +895,22 @@
     const translateButton = document.getElementById('translateButton');
     const translationSection = document.getElementById('translationSection');
     const translationControls = document.getElementById('translationControls');
+    
+    // 画像解析用の変数
+    let currentFile = null;
+    const imageImportBtn = document.getElementById('imageImportBtn');
+    const imageModal = document.getElementById('image-import-modal');
+    const imageModalCloseBtn = document.getElementById('image-import-modal-close-btn');
+    const imageImportCancelBtn = document.getElementById('imageImportCancelBtn');
+    const fileSelectBtn = document.getElementById('fileSelectBtn');
+    const cameraBtn = document.getElementById('cameraBtn');
+    const imageInput = document.getElementById('imageInput');
+    const cameraInput = document.getElementById('cameraInput');
+    const previewArea = document.getElementById('previewArea');
+    const previewImage = document.getElementById('previewImage');
+    const analyzeButton = document.getElementById('analyzeButton');
+    const clearImageButton = document.getElementById('clearImageButton');
+    const imageMessageArea = document.getElementById('imageMessageArea');
     
     let currentRecipeData = null;
     let isJapaneseContent = false;
@@ -798,6 +972,332 @@
         setStatus('Supabaseクライアントの初期化に失敗しました', 'error', 'fa-triangle-exclamation');
       }
     });
+
+    // 画像解析モーダルのイベントリスナー
+    imageImportBtn.addEventListener('click', () => {
+      imageModal.style.display = 'flex';
+    });
+
+    imageModalCloseBtn.addEventListener('click', closeImageModal);
+    imageImportCancelBtn.addEventListener('click', closeImageModal);
+
+    imageModal.addEventListener('click', (e) => {
+      if (e.target === imageModal) {
+        closeImageModal();
+      }
+    });
+
+    fileSelectBtn.addEventListener('click', () => {
+      const newInput = document.createElement('input');
+      newInput.type = 'file';
+      newInput.accept = 'image/*';
+      newInput.style.position = 'absolute';
+      newInput.style.left = '-9999px';
+      newInput.style.top = '-9999px';
+      newInput.style.opacity = '0';
+
+      const handleNewInputChange = (event) => {
+        if (event.target.files && event.target.files.length > 0) {
+          const file = event.target.files[0];
+          handleFile(file);
+        }
+        setTimeout(() => {
+          if (document.body.contains(newInput)) {
+            document.body.removeChild(newInput);
+          }
+        }, 100);
+      };
+
+      newInput.addEventListener('change', handleNewInputChange);
+      newInput.addEventListener('input', handleNewInputChange);
+
+      document.body.appendChild(newInput);
+      setTimeout(() => {
+        newInput.click();
+      }, 10);
+    });
+
+    cameraBtn.addEventListener('click', () => {
+      const newInput = document.createElement('input');
+      newInput.type = 'file';
+      newInput.accept = 'image/*';
+      newInput.setAttribute('capture', 'user');
+      newInput.style.position = 'absolute';
+      newInput.style.left = '-9999px';
+      newInput.style.top = '-9999px';
+      newInput.style.opacity = '0';
+
+      const handleCameraInputChange = (event) => {
+        if (event.target.files && event.target.files.length > 0) {
+          const file = event.target.files[0];
+          handleFile(file);
+        }
+        setTimeout(() => {
+          if (document.body.contains(newInput)) {
+            document.body.removeChild(newInput);
+          }
+        }, 100);
+      };
+
+      newInput.addEventListener('change', handleCameraInputChange);
+      newInput.addEventListener('input', handleCameraInputChange);
+
+      document.body.appendChild(newInput);
+      setTimeout(() => {
+        newInput.click();
+      }, 10);
+    });
+
+    analyzeButton.addEventListener('click', analyzeImage);
+    clearImageButton.addEventListener('click', clearImage);
+
+    function closeImageModal() {
+      imageModal.style.display = 'none';
+    }
+
+    function handleFile(file) {
+      if (!file || !file.type.startsWith('image/')) {
+        showImageMessage('画像ファイルを選択してください', 'error');
+        return;
+      }
+
+      currentFile = file;
+      window.__ocrCurrentFile = file;
+      window.currentImageFiles = [file];
+
+      // プレビュー表示
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        previewImage.src = e.target.result;
+        previewArea.style.display = 'block';
+        document.getElementById('uploadArea').style.display = 'none';
+        analyzeButton.disabled = false;
+      };
+      reader.readAsDataURL(file);
+
+      showImageMessage('画像が選択されました。「解析してレシピを抽出」ボタンをクリックしてください。', 'success');
+    }
+
+    function clearImage() {
+      currentFile = null;
+      window.__ocrCurrentFile = null;
+      window.currentImageFiles = [];
+      previewImage.src = '';
+      previewArea.style.display = 'none';
+      document.getElementById('uploadArea').style.display = 'block';
+      analyzeButton.disabled = true;
+      showImageMessage('', '');
+    }
+
+    function showImageMessage(message, type) {
+      if (!message) {
+        imageMessageArea.innerHTML = '';
+        return;
+      }
+
+      const icons = {
+        success: 'fa-check-circle',
+        error: 'fa-exclamation-triangle',
+        info: 'fa-info-circle',
+        loading: 'fa-spinner fa-spin'
+      };
+
+      const colors = {
+        success: 'var(--success-color)',
+        error: 'var(--error-color)',
+        info: 'var(--accent-primary)',
+        loading: 'var(--accent-primary)'
+      };
+
+      imageMessageArea.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem; border-radius: 8px; background: ${colors[type] || colors.info}15; color: ${colors[type] || colors.info}; border: 1px solid ${colors[type] || colors.info}25;">
+          <i class="fas ${icons[type] || icons.info}"></i>
+          <span>${message}</span>
+        </div>
+      `;
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('ファイルの読み込みに失敗しました'));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function getActiveOcrFile() {
+      if (currentFile instanceof File) {
+        return currentFile;
+      }
+      if (window.__ocrCurrentFile instanceof File) {
+        return window.__ocrCurrentFile;
+      }
+      if (Array.isArray(window.currentImageFiles) && window.currentImageFiles.length > 0) {
+        const candidate = window.currentImageFiles.find(f => f instanceof File);
+        if (candidate) {
+          window.__ocrCurrentFile = candidate;
+          currentFile = candidate;
+          return candidate;
+        }
+      }
+      return null;
+    }
+
+    async function analyzeWithAzureDocumentIntelligence(base64Payload, selectedProvider, providerInfo) {
+      console.log('🛰️ Azure Document Intelligence呼び出し準備', { selectedProvider });
+
+      const { data: docResult, error: docError } = await sb.functions.invoke('call-document-intelligence', {
+        body: {
+          image: base64Payload,
+          processorType: 'RECIPE_PROCESSOR',
+          aiProvider: selectedProvider
+        }
+      });
+
+      if (docError) {
+        console.error('❌ call-document-intelligence error:', docError);
+        throw new Error(docError.message || docError.error || 'Azure Document Intelligence呼び出しに失敗しました');
+      }
+
+      if (!docResult?.success) {
+        console.error('❌ call-document-intelligence response error:', docResult);
+        throw new Error(docResult?.error || '画像解析に失敗しました');
+      }
+
+      const recipeData = docResult.data;
+      if (!recipeData || typeof recipeData !== 'object') {
+        throw new Error('レシピデータが取得できませんでした');
+      }
+
+      recipeData.aiProvider = selectedProvider;
+      recipeData.aiProviderModel = providerInfo?.model || null;
+
+      console.log('📄 Azure + AI解析結果:', recipeData);
+      return recipeData;
+    }
+
+    async function analyzeWithVisionFallback(base64Payload, fileType, selectedProvider, providerInfo) {
+      const mimeType = fileType || 'image/png';
+      console.log('🛰️ Gemini Visionフォールバック開始', { selectedProvider, mimeType });
+
+      const { data: visionResult, error: visionError } = await sb.functions.invoke('call-vision-api', {
+        body: {
+          contents: [{
+            parts: [
+              {
+                text: 'Extract all text from this recipe image. Preserve Japanese characters, numbers, and line breaks as they appear.'
+              },
+              {
+                inline_data: {
+                  mime_type: mimeType,
+                  data: base64Payload
+                }
+              }
+            ]
+          }]
+        }
+      });
+
+      if (visionError) {
+        console.error('❌ call-vision-api error:', visionError);
+        throw new Error(visionError.message || visionError.error || 'Gemini Vision呼び出しに失敗しました');
+      }
+
+      const extractedTextParts = visionResult?.candidates?.[0]?.content?.parts || [];
+      const extractedText = extractedTextParts
+        .map(part => part?.text || '')
+        .filter(Boolean)
+        .join('\n')
+        .trim();
+
+      if (!extractedText) {
+        console.error('❌ Gemini Visionから有効なテキストが取得できませんでした:', visionResult);
+        throw new Error('Gemini Visionからテキストを取得できませんでした');
+      }
+
+      console.log('📝 Gemini Vision抽出テキスト(冒頭):', extractedText.substring(0, 200));
+
+      // 抽出したテキストをAI解析システムに送る
+      const selectedApi = document.querySelector('input[name="api"]:checked').value;
+      const recipeData = await analyzeRecipeWithAI(extractedText, null, selectedApi);
+      
+      if (!recipeData || typeof recipeData !== 'object') {
+        throw new Error('AI解析結果が無効です');
+      }
+      
+      recipeData.aiProvider = recipeData.aiProvider || selectedProvider;
+      recipeData.aiProviderModel = recipeData.aiProviderModel || providerInfo?.model || null;
+      
+      console.log('✅ Gemini Vision + AI解析成功:', {
+        provider: recipeData.aiProvider,
+        ingredients: recipeData.ingredients?.length || 0,
+        steps: recipeData.steps?.length || 0
+      });
+      
+      return recipeData;
+    }
+
+    async function analyzeImage() {
+      console.log('🔍 analyzeImage function called');
+      const activeFile = getActiveOcrFile();
+      
+      if (!activeFile) {
+        console.error('❌ No currentFile available');
+        showImageMessage('画像を選択してください', 'error');
+        return;
+      }
+
+      showImageMessage('AzureでOCR解析を開始しました...', 'loading');
+      analyzeButton.disabled = true;
+
+      try {
+        const base64 = await fileToBase64(activeFile);
+        console.log('✅ Base64 conversion completed, size:', base64.length);
+        const base64Payload = base64.includes(',') ? base64.split(',')[1] : base64;
+
+        const selectedApi = document.querySelector('input[name="api"]:checked').value;
+        const providerInfo = { key: selectedApi };
+        console.log('🤖 Selected AI provider:', selectedApi);
+
+        let recipeData = null;
+        let analysisSource = '';
+
+        try {
+          showImageMessage(`AzureでOCR後、${selectedApi.toUpperCase()}で解析中...`, 'loading');
+          recipeData = await analyzeWithAzureDocumentIntelligence(base64Payload, selectedApi, providerInfo);
+          analysisSource = `Azure Document Intelligence + ${selectedApi.toUpperCase()}`;
+        } catch (azureError) {
+          console.warn('⚠️ Azure Document Intelligence解析に失敗しました。Gemini Visionフォールバックを試みます。', azureError);
+          showImageMessage('Azure解析に失敗したため、Gemini Visionに切り替えています...', 'info');
+
+          try {
+            recipeData = await analyzeWithVisionFallback(base64Payload, activeFile.type, selectedApi, providerInfo);
+            analysisSource = `Gemini Vision + ${selectedApi.toUpperCase()}`;
+          } catch (fallbackError) {
+            console.error('❌ Gemini Visionフォールバックも失敗しました', fallbackError);
+            throw fallbackError;
+          }
+        }
+
+        if (!recipeData || typeof recipeData !== 'object') {
+          throw new Error('レシピデータが取得できませんでした');
+        }
+
+        console.log(`📄 解析結果 (${analysisSource}):`, recipeData);
+        
+        // 結果を表示
+        displayRecipeResults(recipeData, analysisSource);
+        showImageMessage('画像解析が完了しました！', 'success');
+        closeImageModal();
+
+      } catch (error) {
+        console.error('❌ 画像解析エラー:', error);
+        showImageMessage('画像解析に失敗しました: ' + (error.message || error), 'error');
+      } finally {
+        analyzeButton.disabled = !currentFile;
+      }
+    }
 
     // 翻訳ボタンのイベントリスナー
     translateButton.addEventListener('click', async () => {
@@ -1123,6 +1623,7 @@ JSON形式で返す:
 2. 手順は工程名だけでなく、具体的な調理方法、温度、時間、材料の使用量、注意点を含む完全な内容を抽出してください。
 3. 複数の工程がある場合は、各工程の詳細な手順をすべて含めてください。
 4. 「①白ネギのコンフィを作る」のようなタイトルだけでなく、「白ネギの青い部分を切り落とし、白い部分をよく洗う。オリーブオイル、ニンニク、タイム、ローリエ、塩2ｇと一緒に真空包装し、15分間スチームコンベクションオーブンのバプールモードで加熱する。」のような具体的な内容を抽出してください。
+
 5. 材料の分量処理:
    - 曖昧な表現（「適量」「少々」「ひとつまみ」「お好みで」）→ quantityに入れ、unitは空文字
    - 数値付き単位（「大さじ3」「小さじ2」「1個」）→ 変換ルールに従って数値と単位を分離
