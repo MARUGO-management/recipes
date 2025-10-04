@@ -68,6 +68,9 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+      word-wrap: break-word;
+      word-break: break-word;
+      overflow-wrap: break-word;
     }
     
     main {
@@ -266,10 +269,13 @@
       background: var(--bg-surface);
       border-radius: 16px;
       box-shadow: 0 20px 45px rgba(15, 23, 42, 0.3);
-      max-width: 500px;
-      width: 90%;
+      max-width: 600px;
+      width: 95%;
       max-height: 90vh;
       overflow-y: auto;
+      word-wrap: break-word;
+      word-break: break-word;
+      overflow-wrap: break-word;
     }
     
     .modal-header {
@@ -303,6 +309,10 @@
     
     .modal-body {
       padding: 1.5rem;
+      word-wrap: break-word;
+      word-break: break-word;
+      overflow-wrap: break-word;
+      white-space: normal;
     }
     
     .modal-footer {
@@ -314,13 +324,19 @@
     
     .image-upload-section {
       text-align: center;
-      padding: 2rem;
+      padding: 2rem 1rem;
       border: 2px dashed var(--border-color);
       border-radius: 12px;
       background: var(--bg-primary);
       transition: all 0.3s ease;
       cursor: pointer;
       position: relative;
+      word-wrap: break-word;
+      word-break: break-word;
+      overflow-wrap: break-word;
+      white-space: normal;
+      max-width: 100%;
+      box-sizing: border-box;
     }
     
     .image-upload-section:hover {
@@ -591,6 +607,23 @@
       }
     }
     
+    
+    /* 文字列見切れ防止の包括的設定 */
+    * {
+      word-wrap: break-word !important;
+      word-break: break-word !important;
+      overflow-wrap: break-word !important;
+      white-space: normal !important;
+      box-sizing: border-box !important;
+    }
+    
+    p, span, div, label, button, input, textarea, select {
+      word-wrap: break-word !important;
+      word-break: break-word !important;
+      overflow-wrap: break-word !important;
+      white-space: normal !important;
+      line-height: 1.5 !important;
+    }
     
     .example-urls {
       display: grid;
@@ -999,8 +1032,8 @@
             </div>
           </div>
           <i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: #666; margin-bottom: 1rem;"></i>
-          <p style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem;">レシピ画像をアップロードしてください</p>
-          <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
+          <p style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem; word-wrap: break-word; word-break: break-word; overflow-wrap: break-word; white-space: normal; max-width: 100%;">レシピ画像をアップロードしてください</p>
+          <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1.5rem; word-wrap: break-word; word-break: break-word; overflow-wrap: break-word; white-space: normal; max-width: 100%; line-height: 1.5;">
             画像をここにドラッグ&ドロップするか、下のボタンから選択してください
           </p>
           <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 1rem;">
