@@ -1123,9 +1123,21 @@ JSON形式で返す:
 2. 手順は工程名だけでなく、具体的な調理方法、温度、時間、材料の使用量、注意点を含む完全な内容を抽出してください。
 3. 複数の工程がある場合は、各工程の詳細な手順をすべて含めてください。
 4. 「①白ネギのコンフィを作る」のようなタイトルだけでなく、「白ネギの青い部分を切り落とし、白い部分をよく洗う。オリーブオイル、ニンニク、タイム、ローリエ、塩2ｇと一緒に真空包装し、15分間スチームコンベクションオーブンのバプールモードで加熱する。」のような具体的な内容を抽出してください。
-5. 材料の分量は「適量」「少々」「ひとつまみ」「お好みで」「大さじ3」「1個」などの表現をそのまま抽出してください。数字でない場合はquantityフィールドに入れ、unitは空文字にしてください。
+5. 材料の分量処理:
+   - 曖昧な表現（「適量」「少々」「ひとつまみ」「お好みで」）→ quantityに入れ、unitは空文字
+   - 数値付き単位（「大さじ3」「小さじ2」「1個」）→ 変換ルールに従って数値と単位を分離
+   - 例: 「大さじ3」→ {"quantity": "45", "unit": "ml"} (液体の場合) または {"quantity": "45", "unit": "g"} (固体の場合)
 
-変換ルール: 大さじ1=15ml/g、小さじ1=5ml/g。液体=ml、固体=g。
+変換ルール: 
+- 大さじ1=15ml（液体）または15g（固体）
+- 小さじ1=5ml（液体）または5g（固体）
+- カップ1=200ml
+- 液体材料（水、油、醤油、酒、酢、みりん、牛乳、だし、スープ、ソース、生クリーム等）=ml
+- 固体材料（粉類、砂糖、塩、スパイス等）=g
+- 「大さじ3」→「45」「ml」または「45」「g」に変換
+- 「小さじ2」→「10」「ml」または「10」「g」に変換
+- 数値と単位を必ず分離してください
+
 JSONのみ返す。` :
         `Extract recipe information from this webpage content. Ignore navigation, ads, social media embeds, and related articles. Focus only on the main recipe content.
 
@@ -1152,7 +1164,20 @@ Important:
 2. Include specific cooking methods, temperatures, times, ingredient amounts, and important notes for each step.
 3. For complex recipes with multiple processes, include detailed instructions for each process.
 4. Instead of just "① Make white leek confit", extract the full content like "Cut off the green parts of the white leeks and wash the white parts well. Vacuum pack with olive oil, garlic, thyme, bay leaves, and 2g salt, then heat in steam convection oven vapor mode for 15 minutes."
-5. Extract ingredient quantities as-is: "to taste", "a pinch", "3 tbsp", "1 piece", etc. For non-numeric amounts, put them in quantity field and leave unit empty.
+5. Ingredient quantity processing:
+   - Vague expressions ("to taste", "a pinch", "as needed") → put in quantity field, leave unit empty
+   - Numeric units ("3 tbsp", "2 tsp", "1 piece") → convert according to rules and separate numbers and units
+   - Example: "3 tbsp" → {"quantity": "45", "unit": "ml"} (for liquids) or {"quantity": "45", "unit": "g"} (for solids)
+
+Conversion rules:
+- 1 tbsp = 15ml (liquid) or 15g (solid)
+- 1 tsp = 5ml (liquid) or 5g (solid)  
+- 1 cup = 200ml
+- Liquid ingredients (water, oil, soy sauce, wine, vinegar, mirin, milk, broth, soup, sauce, cream, etc.) = ml
+- Solid ingredients (flour, sugar, salt, spices, etc.) = g
+- "3 tbsp" → "45" "ml" or "45" "g"
+- "2 tsp" → "10" "ml" or "10" "g"
+- Always separate numbers and units
 
 Return only JSON.`;
 
