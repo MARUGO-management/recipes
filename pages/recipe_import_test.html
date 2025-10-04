@@ -3934,9 +3934,9 @@ Return only JSON.`;
       console.log('🖼️ 翻訳材料データタイプ:', typeof t.ingredients);
       console.log('🖼️ 翻訳材料データ長さ:', t.ingredients?.length);
       
-      // 翻訳後も元のレシピと同じフォーマットで表示
-      console.log('🌐 翻訳材料表示開始 - 元と同じフォーマット適用');
-      displayIngredientsFlexibly(t, 'flexibleTranslatedIngredientsDisplay', window.lastProcessedUrl || '');
+      // 翻訳後の材料をカテゴリー別テーブルで表示
+      console.log('🌐 翻訳材料表示開始 - カテゴリー別テーブル形式');
+      displayTranslatedIngredientsAsTable(t, 'flexibleTranslatedIngredientsDisplay');
       
       // 手順
       const translatedStepsList = document.getElementById('translatedStepsList');
@@ -3982,7 +3982,170 @@ Return only JSON.`;
       }
     }
 
-    // 翻訳材料の構造維持表示関数
+    // 翻訳材料をカテゴリー別テーブルで表示する関数
+    function displayTranslatedIngredientsAsTable(translatedData, containerId) {
+      const container = document.getElementById(containerId);
+      if (!container) {
+        console.error('❌ 翻訳用コンテナが見つかりません:', containerId);
+        return;
+      }
+      
+      container.innerHTML = '';
+      const ingredients = translatedData.ingredients || [];
+      
+      if (ingredients.length === 0) {
+        container.innerHTML = '<div class="ingredient-item">翻訳された材料がありません</div>';
+        return;
+      }
+      
+      console.log('🌐 翻訳材料をカテゴリー別テーブルで表示:', ingredients.length, '個');
+      
+      // 材料を4つのカテゴリに分類
+      const categories = {
+        base: { title: 'ベース材料 / BASE', items: [] },
+        filling: { title: 'フィリング・ソース / FILLING', items: [] },
+        seasoning: { title: '調味料・香料 / SEASONINGS', items: [] },
+        others: { title: 'その他 / OTHERS', items: [] }
+      };
+      
+      // 各材料をカテゴリに分類
+      ingredients.forEach(ing => {
+        const itemName = (ing.item || '').toLowerCase();
+        const unit = (ing.unit || '').toLowerCase();
+        
+        // ベース材料パターン
+        if (itemName.match(/flour|farine|生地|dough|pâte|粉|薄力粉|強力粉|バター|butter|beurre|卵|egg|œuf|牛乳|milk|lait/i)) {
+          categories.base.items.push(ing);
+        }
+        // フィリング・ソースパターン
+        else if (itemName.match(/cream|crème|クリーム|sauce|ソース|ganache|ガナッシュ|filling|フィリング|生クリーム|ホイップ/i)) {
+          categories.filling.items.push(ing);
+        }
+        // 調味料・香料パターン
+        else if (itemName.match(/salt|sel|塩|sugar|sucre|砂糖|pepper|poivre|こしょう|胡椒|spice|épice|香辛料|vanilla|vanille|バニラ|シナモン|cinnamon|cannelle/i)) {
+          categories.seasoning.items.push(ing);
+        }
+        // その他
+        else {
+          categories.others.items.push(ing);
+        }
+      });
+      
+      // カテゴリー別にテーブルを作成
+      let categoryCount = 0;
+      Object.values(categories).forEach(category => {
+        if (category.items.length > 0) {
+          categoryCount++;
+          
+          // カテゴリータイトル
+          const titleDiv = document.createElement('div');
+          titleDiv.className = 'recipe-section-title';
+          titleDiv.textContent = category.title;
+          titleDiv.style.cssText = 'font-weight: bold; color: #4a90e2; margin: 1.5rem 0 0.5rem 0; padding: 0.5rem; background: rgba(74, 144, 226, 0.1); border-radius: 4px;';
+          container.appendChild(titleDiv);
+          
+          // テーブル作成
+          const table = document.createElement('table');
+          table.className = 'table';
+          
+          // テーブルヘッダー
+          const thead = document.createElement('thead');
+          const headerRow = document.createElement('tr');
+          ['#', 'Item Name', 'Quantity', 'Unit'].forEach(header => {
+            const th = document.createElement('th');
+            th.textContent = header;
+            headerRow.appendChild(th);
+          });
+          thead.appendChild(headerRow);
+          table.appendChild(thead);
+          
+          // テーブルボディ
+          const tbody = document.createElement('tbody');
+          category.items.forEach((ingredient, index) => {
+            const row = document.createElement('tr');
+            
+            // 番号
+            const tdNum = document.createElement('td');
+            tdNum.textContent = index + 1;
+            tdNum.style.textAlign = 'center';
+            row.appendChild(tdNum);
+            
+            // 材料名
+            const tdItem = document.createElement('td');
+            tdItem.textContent = ingredient.item || '';
+            row.appendChild(tdItem);
+            
+            // 数量
+            const tdQty = document.createElement('td');
+            tdQty.textContent = ingredient.quantity || '';
+            tdQty.style.textAlign = 'right';
+            row.appendChild(tdQty);
+            
+            // 単位
+            const tdUnit = document.createElement('td');
+            tdUnit.textContent = ingredient.unit || '';
+            tdUnit.style.textAlign = 'center';
+            row.appendChild(tdUnit);
+            
+            tbody.appendChild(row);
+          });
+          table.appendChild(tbody);
+          container.appendChild(table);
+          
+          console.log(`✅ カテゴリー "${category.title}": ${category.items.length}個の材料を表示`);
+        }
+      });
+      
+      if (categoryCount === 0) {
+        // カテゴリ分けできない場合は単一テーブルで表示
+        const table = document.createElement('table');
+        table.className = 'table';
+        
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        ['#', 'Item Name', 'Quantity', 'Unit'].forEach(header => {
+          const th = document.createElement('th');
+          th.textContent = header;
+          headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+        
+        const tbody = document.createElement('tbody');
+        ingredients.forEach((ingredient, index) => {
+          const row = document.createElement('tr');
+          
+          const tdNum = document.createElement('td');
+          tdNum.textContent = index + 1;
+          tdNum.style.textAlign = 'center';
+          row.appendChild(tdNum);
+          
+          const tdItem = document.createElement('td');
+          tdItem.textContent = ingredient.item || '';
+          row.appendChild(tdItem);
+          
+          const tdQty = document.createElement('td');
+          tdQty.textContent = ingredient.quantity || '';
+          tdQty.style.textAlign = 'right';
+          row.appendChild(tdQty);
+          
+          const tdUnit = document.createElement('td');
+          tdUnit.textContent = ingredient.unit || '';
+          tdUnit.style.textAlign = 'center';
+          row.appendChild(tdUnit);
+          
+          tbody.appendChild(row);
+        });
+        table.appendChild(tbody);
+        container.appendChild(table);
+        
+        console.log(`✅ 全材料を単一テーブルで表示: ${ingredients.length}個`);
+      }
+      
+      console.log('🎉 翻訳材料のテーブル表示完了');
+    }
+
+    // 翻訳材料の構造維持表示関数（旧版 - 互換性のため保持）
     function displayTranslatedIngredientsWithStructure(translatedData, originalData, containerId) {
       const container = document.getElementById(containerId);
       if (!container) {
