@@ -4044,20 +4044,9 @@ Return only JSON.`;
           titleDiv.style.cssText = 'font-weight: bold; color: #4a90e2; margin: 1.5rem 0 0.5rem 0; padding: 0.5rem; background: rgba(74, 144, 226, 0.1); border-radius: 4px;';
           container.appendChild(titleDiv);
           
-          // テーブル作成
+          // テーブル作成（ヘッダーなし）
           const table = document.createElement('table');
           table.className = 'table';
-          
-          // テーブルヘッダー
-          const thead = document.createElement('thead');
-          const headerRow = document.createElement('tr');
-          ['#', 'Item Name', 'Quantity', 'Unit'].forEach(header => {
-            const th = document.createElement('th');
-            th.textContent = header;
-            headerRow.appendChild(th);
-          });
-          thead.appendChild(headerRow);
-          table.appendChild(thead);
           
           // テーブルボディ
           const tbody = document.createElement('tbody');
@@ -4097,19 +4086,9 @@ Return only JSON.`;
       });
       
       if (categoryCount === 0) {
-        // カテゴリ分けできない場合は単一テーブルで表示
+        // カテゴリ分けできない場合は単一テーブルで表示（ヘッダーなし）
         const table = document.createElement('table');
         table.className = 'table';
-        
-        const thead = document.createElement('thead');
-        const headerRow = document.createElement('tr');
-        ['#', 'Item Name', 'Quantity', 'Unit'].forEach(header => {
-          const th = document.createElement('th');
-          th.textContent = header;
-          headerRow.appendChild(th);
-        });
-        thead.appendChild(headerRow);
-        table.appendChild(thead);
         
         const tbody = document.createElement('tbody');
         ingredients.forEach((ingredient, index) => {
