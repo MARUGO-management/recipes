@@ -1583,6 +1583,15 @@
 
       try {
         console.log('🌐 翻訳開始:', currentRecipeData);
+        console.log('🌐 選択された言語:', targetLanguageSelect.value);
+        console.log('🌐 現在のレシピデータ構造:', {
+          hasTitle: !!currentRecipeData?.title,
+          hasDescription: !!currentRecipeData?.description,
+          hasIngredients: !!currentRecipeData?.ingredients,
+          hasSteps: !!currentRecipeData?.steps,
+          ingredientsCount: currentRecipeData?.ingredients?.length || 0,
+          stepsCount: currentRecipeData?.steps?.length || 0
+        });
         
         const translatedData = await translateRecipeData(currentRecipeData);
         console.log('✅ 翻訳完了:', translatedData);
@@ -2317,12 +2326,33 @@ Return only JSON.`;
     // レシピデータを翻訳する関数
     async function translateRecipeData(recipeData) {
       const selectedLanguage = targetLanguageSelect.value;
+      
+      // 言語名のマッピング
+      const languageNames = {
+        japanese: '日本語',
+        english: '英語',
+        french: 'フランス語',
+        italian: 'イタリア語',
+        german: 'ドイツ語',
+        spanish: 'スペイン語',
+        korean: '韓国語',
+        chinese: '中国語'
+      };
+      
+      const targetLanguageName = languageNames[selectedLanguage] || selectedLanguage;
+      
+      console.log('🌐 翻訳開始:', {
+        selectedLanguage,
+        targetLanguageName,
+        recipeDataKeys: Object.keys(recipeData || {})
+      });
+      
       const { data, error } = await sb.functions.invoke('call-groq-api', {
         body: {
           mode: 'recipe_translation',
           recipeData: recipeData,
           targetLanguage: selectedLanguage,
-          targetLanguageName: '日本語'
+          targetLanguageName: targetLanguageName
         }
       });
 
@@ -2445,10 +2475,11 @@ Return only JSON.`;
         } else {
           // フォールバック: レスポンスが自然言語の場合、手動で構造化データを作成
           console.warn('⚠️ JSON解析に失敗、自然言語レスポンスから構造化データを作成します');
+          console.warn('⚠️ レスポンス内容:', content.substring(0, 500));
           
           // 自然言語レスポンスから基本的な情報を抽出
           const fallbackData = {
-            title: currentRecipeData?.title ? `${currentRecipeData.title} (日本語翻訳)` : '翻訳されたレシピ',
+            title: currentRecipeData?.title ? `${currentRecipeData.title} (${targetLanguageName}翻訳)` : `翻訳されたレシピ (${targetLanguageName})`,
             description: content.length > 0 ? content.substring(0, 200) + '...' : '翻訳情報が取得できませんでした',
             servings: currentRecipeData?.servings || '不明',
             ingredients: currentRecipeData?.ingredients || [],
@@ -3875,6 +3906,13 @@ Return only JSON.`;
       
       console.log('🖼️ 翻訳結果表示開始:', t);
       console.log('🖼️ 翻訳データのキー:', Object.keys(t));
+      console.log('🖼️ 翻訳データの詳細:', {
+        title: t.title,
+        description: t.description,
+        servings: t.servings,
+        ingredientsCount: t.ingredients?.length || 0,
+        stepsCount: t.steps?.length || 0
+      });
       
       // タイトル
       const titleText = t.title || '(翻訳なし)';
