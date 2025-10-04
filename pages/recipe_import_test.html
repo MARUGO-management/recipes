@@ -72,45 +72,72 @@
     
     main {
       flex: 1;
-      padding: 2rem 1.5rem 3rem;
+      padding: 2rem 1.5rem 4rem;
       max-width: 1200px;
       margin: 0 auto;
       width: 100%;
     }
     
+    @media (max-width: 768px) {
+      main {
+        padding: 1.5rem 1rem 3rem;
+      }
+    }
+    
     .import-card {
       background: var(--bg-surface);
-      border-radius: 16px;
+      border-radius: 20px;
       box-shadow: 0 20px 45px rgba(15, 23, 42, 0.12);
-      padding: clamp(1.5rem, 3vw, 2.5rem);
+      padding: clamp(2rem, 4vw, 3rem);
       border: 1px solid var(--border-color);
-      margin-bottom: 2rem;
+      margin-bottom: 3rem;
+      transition: box-shadow 0.3s ease;
+    }
+    
+    .import-card:hover {
+      box-shadow: 0 25px 55px rgba(15, 23, 42, 0.15);
     }
     
     .import-card header {
       display: flex;
       flex-direction: column;
-      gap: 0.35rem;
-      margin-bottom: 1.5rem;
+      gap: 0.5rem;
+      margin-bottom: 2rem;
+      text-align: center;
     }
     
     .import-card h1 {
-      font-size: clamp(1.4rem, 3.4vw, 1.9rem);
+      font-size: clamp(1.6rem, 4vw, 2.2rem);
       margin: 0;
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      justify-content: center;
+      gap: 0.75rem;
+      background: linear-gradient(135deg, var(--accent-primary), #4f46e5);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-weight: 700;
+    }
+    
+    .import-card h1 i {
+      background: linear-gradient(135deg, var(--accent-primary), #4f46e5);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
     
     .import-card p {
-      margin: 0;
+      margin: 0 auto;
       color: var(--text-secondary);
       line-height: 1.6;
+      font-size: 1rem;
+      max-width: 600px;
     }
     
     form {
       display: grid;
-      gap: 1rem;
+      gap: 1.5rem;
       margin-bottom: 2rem;
     }
     
@@ -353,20 +380,34 @@
     
     .result-section {
       background: var(--bg-surface);
-      border-radius: 12px;
+      border-radius: 16px;
       border: 1px solid var(--border-color);
-      padding: 1.5rem;
+      padding: 2rem;
       min-width: 0;
       overflow: hidden;
       word-wrap: break-word;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+      transition: box-shadow 0.2s ease;
+    }
+    
+    .result-section:hover {
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
     }
     
     .result-section h3 {
-      margin: 0 0 1rem 0;
-      font-size: 1.1rem;
+      margin: 0 0 1.5rem 0;
+      font-size: 1.25rem;
+      font-weight: 600;
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.75rem;
+      color: var(--text-primary);
+      border-bottom: 2px solid var(--border-color);
+      padding-bottom: 0.75rem;
+    }
+    
+    .result-section h3 i {
+      color: var(--accent-primary);
     }
     
     .recipe-preview {
@@ -501,18 +542,6 @@
       }
     }
     
-    .debug-info {
-      font-family: 'SFMono-Regular', 'Consolas', 'Liberation Mono', monospace;
-      font-size: 0.8rem;
-      background: var(--bg-primary);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 1rem;
-      overflow-x: auto;
-      white-space: pre-wrap;
-      max-height: 400px;
-      overflow-y: auto;
-    }
     
     .example-urls {
       display: grid;
@@ -835,12 +864,6 @@
         </div>
       </div>
 
-      <div class="result-section">
-        <h3><i class="fa-solid fa-code"></i> デバッグ情報</h3>
-        <div class="debug-info" id="debugInfo">
-          デバッグ情報がここに表示されます
-        </div>
-      </div>
     </div>
   </main>
 
@@ -1408,14 +1431,6 @@
         console.error('❌ レシピ取得エラー:', err);
         setStatus(`エラー: ${err.message}`, 'error', 'fa-triangle-exclamation');
         
-        // デバッグ情報を表示
-        displayDebugInfo({ 
-          error: err.message, 
-          stack: err.stack,
-          url: url,
-          selectedApi: selectedApi,
-          timestamp: new Date().toISOString()
-        });
         resultsGrid.hidden = false;
       } finally {
         importButton.disabled = false;
@@ -1825,14 +1840,6 @@ Return only JSON.`;
         translationControls.style.display = 'none';
       }
       
-      // デバッグ情報
-      displayDebugInfo({
-        url: meta.url,
-        api: meta.selectedApi,
-        htmlLength: meta.htmlLength,
-        recipeData: r,
-        isJapaneseContent: isJapaneseContent
-      });
     }
 
     // 日本語コンテンツかどうかを判定
@@ -4349,11 +4356,6 @@ IMPORTANT:
       }
     }
 
-    // デバッグ情報を表示する関数
-    function displayDebugInfo(info) {
-      const debugInfo = document.getElementById('debugInfo');
-      debugInfo.textContent = JSON.stringify(info, null, 2);
-    }
   </script>
 </body>
 </html>
