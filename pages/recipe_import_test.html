@@ -1029,13 +1029,18 @@ JSON形式で返す:
     {"item": "材料名", "quantity": "分量（数字のみ）", "unit": "単位（g、ml、個、枚、本、束、大さじ、小さじ、カップ等）"}
   ],
   "steps": [
-    {"step": "手順"}
+    {"step": "詳細な手順内容（工程名だけでなく、具体的な調理方法、温度、時間、注意点を含む完全な手順）"}
   ],
   "notes": "メモ",
   "image_url": "【レシピのメイン画像URL（wp-content/uploads等の実際の料理画像を優先、見つからない場合は空文字）】"
 }
 
-重要: 日本語コンテンツは翻訳せずそのまま抽出してください。
+重要: 
+1. 日本語コンテンツは翻訳せずそのまま抽出してください。
+2. 手順は工程名だけでなく、具体的な調理方法、温度、時間、材料の使用量、注意点を含む完全な内容を抽出してください。
+3. 複数の工程がある場合は、各工程の詳細な手順をすべて含めてください。
+4. 「①白ネギのコンフィを作る」のようなタイトルだけでなく、「白ネギの青い部分を切り落とし、白い部分をよく洗う。オリーブオイル、ニンニク、タイム、ローリエ、塩2ｇと一緒に真空包装し、15分間スチームコンベクションオーブンのバプールモードで加熱する。」のような具体的な内容を抽出してください。
+
 変換ルール: 大さじ1=15ml/g、小さじ1=5ml/g。液体=ml、固体=g。
 JSONのみ返す。` :
         `Extract recipe information from this webpage content. Ignore navigation, ads, social media embeds, and related articles. Focus only on the main recipe content.
@@ -1052,11 +1057,17 @@ Return in JSON format:
     {"item": "Ingredient name", "quantity": "Amount", "unit": "Unit"}
   ],
   "steps": [
-    {"step": "Cooking step"}
+    {"step": "Detailed cooking step (not just titles, but complete instructions including specific cooking methods, temperatures, times, ingredient amounts, and important notes)"}
   ],
   "notes": "Additional notes",
   "image_url": "Main recipe image URL"
 }
+
+Important:
+1. Extract complete step instructions, not just titles or section names.
+2. Include specific cooking methods, temperatures, times, ingredient amounts, and important notes for each step.
+3. For complex recipes with multiple processes, include detailed instructions for each process.
+4. Instead of just "① Make white leek confit", extract the full content like "Cut off the green parts of the white leeks and wash the white parts well. Vacuum pack with olive oil, garlic, thyme, bay leaves, and 2g salt, then heat in steam convection oven vapor mode for 15 minutes."
 
 Return only JSON.`;
 
@@ -2250,34 +2261,67 @@ Return only JSON.`;
               const normalizedIngredient = normalizeIngredientObject(ingredient);
               const itemName = normalizedIngredient.item.toLowerCase();
               
-              // 工程別材料分類ルール
+              // 工程別材料分類ルール（大幅強化）
               let shouldInclude = false;
               
               switch (processName) {
                 case 'マリナード・下準備':
-                  shouldInclude = itemName.match(/鹿|ロース|肉|味噌|香草|塩|コショウ|pepper|salt|miso/i);
+                  shouldInclude = itemName.match(/鹿|ロース|肉|味噌|香草|塩|コショウ|pepper|salt|miso|marinade|marinate|下味|漬け込み/i);
                   break;
                 case 'ウェリントン包み':
-                  shouldInclude = itemName.match(/パイ|シート|キャベツ|卵黄|pastry|puff|cabbage|egg/i);
+                  shouldInclude = itemName.match(/パイ|シート|キャベツ|卵黄|pastry|puff|cabbage|egg|wellington|包み|生地|粒生黒コショウ|フルール.*セル/i);
                   break;
                 case 'コンフィ・付け合わせ':
-                  shouldInclude = itemName.match(/白ネギ|ねぎ|オリーブオイル|ニンニク|タイム|ローリエ|leek|olive|garlic|thyme|bay/i);
+                  shouldInclude = itemName.match(/白ネギ|ねぎ|オリーブオイル|ニンニク|タイム|ローリエ|leek|olive|garlic|thyme|bay|confit|ごぼう|パンチェッタ|玉ネギ|無塩バター|チキンブイヨン|白コショウ/i);
                   break;
                 case 'ドフィノワーズ':
-                  shouldInclude = itemName.match(/サツマイモ|ジャガイモ|生クリーム|牛乳|パルメザン|potato|cream|milk|parmesan/i);
+                  shouldInclude = itemName.match(/サツマイモ|ジャガイモ|生クリーム|牛乳|パルメザン|potato|cream|milk|parmesan|dauphinoise|ベシャメル|薄力粉|ナツメグ/i);
                   break;
                 case 'ソース・調味料':
-                  shouldInclude = itemName.match(/醤油|燻煙|柚子|バター|ブイヨン|コーンスターチ|soy|yuzu|butter|stock|cornstarch/i);
+                  shouldInclude = itemName.match(/醤油|燻煙|柚子|バター|ブイヨン|コーンスターチ|soy|yuzu|butter|stock|cornstarch|焦がしバター|燻煙醬油|柚子果汁/i);
                   break;
                 case 'フリカッセ・ガルニ':
-                  shouldInclude = itemName.match(/ジロル|トランペット|芽キャベツ|きのこ|茸|mushroom|brussels/i);
+                  shouldInclude = itemName.match(/ジロル|トランペット|芽キャベツ|きのこ|茸|mushroom|brussels|fricassee|ドライトランペット|エシャロット|サラダ油/i);
                   break;
                 case 'ハーブ・薬味':
-                  shouldInclude = itemName.match(/ワサビ|わさび|香草|パセリ|wasabi|herb|parsley/i);
+                  shouldInclude = itemName.match(/ワサビ|わさび|香草|パセリ|wasabi|herb|parsley|ジェノベーゼ|genovese|ピーテンドリル|マイクロアマランサス/i);
                   break;
                 case '盛り付け・仕上げ':
-                  shouldInclude = itemName.match(/飾り|ガルニ|マイクロ|garnish|micro/i);
+                  shouldInclude = itemName.match(/飾り|ガルニ|マイクロ|garnish|micro|盛り付け|仕上げ|decoration/i);
                   break;
+              }
+              
+              // より包括的な材料マッチング（部分一致も考慮）
+              if (!shouldInclude) {
+                // 材料名に含まれるキーワードで再チェック
+                const keywords = itemName.split(/\s+|・|、|,/);
+                keywords.forEach(keyword => {
+                  if (keyword.length >= 2) { // 2文字以上のキーワードのみ
+                    switch (processName) {
+                      case 'マリナード・下準備':
+                        if (keyword.match(/鹿|肉|味噌|香草|塩|胡椒/i)) shouldInclude = true;
+                        break;
+                      case 'ウェリントン包み':
+                        if (keyword.match(/パイ|キャベツ|卵|生地|黒胡椒|セル/i)) shouldInclude = true;
+                        break;
+                      case 'コンフィ・付け合わせ':
+                        if (keyword.match(/ネギ|オリーブ|ニンニク|ごぼう|バター|ブイヨン/i)) shouldInclude = true;
+                        break;
+                      case 'ドフィノワーズ':
+                        if (keyword.match(/イモ|芋|クリーム|牛乳|チーズ|小麦粉/i)) shouldInclude = true;
+                        break;
+                      case 'ソース・調味料':
+                        if (keyword.match(/醤油|柚子|バター|ソース|調味/i)) shouldInclude = true;
+                        break;
+                      case 'フリカッセ・ガルニ':
+                        if (keyword.match(/きのこ|茸|キャベツ|エシャロット/i)) shouldInclude = true;
+                        break;
+                      case 'ハーブ・薬味':
+                        if (keyword.match(/ワサビ|香草|ハーブ|パセリ/i)) shouldInclude = true;
+                        break;
+                    }
+                  }
+                });
               }
               
               if (shouldInclude) {
