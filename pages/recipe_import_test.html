@@ -1582,7 +1582,10 @@ Return only JSON.`;
         marmiton: url && url.includes('marmiton.org'),
         cookpad: url && url.includes('cookpad.com'),
         kurashiru: url && url.includes('kurashiru.com'),
-        delishkitchen: url && url.includes('delishkitchen.tv')
+        delishkitchen: url && url.includes('delishkitchen.tv'),
+        gibier: url && url.includes('gibier.or.jp'),
+        tsuji: url && url.includes('tsuji.ac.jp'),
+        professional: url && (url.includes('chef') || url.includes('hotel') || url.includes('restaurant'))
       };
       
       console.log('🏷️ サイト検出結果:', siteDetection);
@@ -1634,6 +1637,16 @@ Return only JSON.`;
         
         if (totalMapped < r.ingredients.length) {
           console.warn(`⚠️ 未マッピング材料あり: ${r.ingredients.length - totalMapped}個が抜けています`);
+        }
+      }
+      
+      // ジビエ・日本語プロレシピの場合は専用処理
+      if (sections.length === 0 && (siteDetection.gibier || siteDetection.tsuji || siteDetection.professional)) {
+        console.log('🏷️ 日本語プロレシピ専用処理を実行');
+        const japaneseProfessionalSections = createJapaneseProfessionalSections(r, url);
+        if (japaneseProfessionalSections.length > 0) {
+          console.log('✅ 日本語プロレシピ処理成功:', japaneseProfessionalSections.length, '個');
+          sections.push(...japaneseProfessionalSections);
         }
       }
       
@@ -2179,6 +2192,164 @@ Return only JSON.`;
         .trim();
     }
 
+    // 日本語プロレシピ専用のセクション作成関数
+    function createJapaneseProfessionalSections(recipeData, url = '') {
+      console.log('🏷️ 日本語プロレシピセクション作成開始');
+      
+      const r = recipeData || {};
+      const ingredients = r.ingredients || [];
+      const steps = r.steps || [];
+      const title = r.title || '';
+      
+      console.log('📊 日本語プロレシピ分析:');
+      console.log(`  タイトル: "${title}"`);
+      console.log(`  材料数: ${ingredients.length}`);
+      console.log(`  手順数: ${steps.length}`);
+      
+      const sections = [];
+      
+      // ジビエレシピの場合の特別処理
+      const isGibierRecipe = title.match(/鹿|猪|いのしし|ジビエ|ウェリントン|wellington/i) ||
+                            ingredients.some(ing => {
+                              const itemName = typeof ing === 'string' ? ing : (ing.item || ing.name || '');
+                              return itemName.match(/鹿|猪|いのしし|ジビエ|venison|wild.*boar/i);
+                            });
+      
+      if (isGibierRecipe) {
+        console.log('🦌 ジビエレシピ検出 - 専用セクション作成');
+        
+        // 手順から工程を検出
+        const detectedProcesses = [];
+        const allText = `${title} ${steps.join(' ')}`;
+        
+        // ジビエ料理の典型的な工程パターン
+        const processPatterns = [
+          { pattern: /マリナード|マリネ|漬け込み|下味/i, section: 'マリナード・下準備' },
+          { pattern: /ウェリントン|パイ包み|パイ生地/i, section: 'ウェリントン包み' },
+          { pattern: /コンフィ|低温調理|真空/i, section: 'コンフィ・付け合わせ' },
+          { pattern: /ドフィノワーズ|グラタン|ベシャメル/i, section: 'ドフィノワーズ' },
+          { pattern: /ソース|燻煙|醤油|柚子/i, section: 'ソース・調味料' },
+          { pattern: /フリカッセ|きのこ|茸|マッシュルーム/i, section: 'フリカッセ・ガルニ' },
+          { pattern: /ジェノベーゼ|ワサビ|香草/i, section: 'ハーブ・薬味' },
+          { pattern: /盛り付け|仕上げ|飾り/i, section: '盛り付け・仕上げ' }
+        ];
+        
+        processPatterns.forEach(({ pattern, section }) => {
+          if (pattern.test(allText)) {
+            detectedProcesses.push(section);
+            console.log(`  工程検出: ${section}`);
+          }
+        });
+        
+        // 材料を工程別に分類
+        if (detectedProcesses.length > 0) {
+          detectedProcesses.forEach(processName => {
+            const sectionIngredients = [];
+            
+            ingredients.forEach(ingredient => {
+              const normalizedIngredient = normalizeIngredientObject(ingredient);
+              const itemName = normalizedIngredient.item.toLowerCase();
+              
+              // 工程別材料分類ルール
+              let shouldInclude = false;
+              
+              switch (processName) {
+                case 'マリナード・下準備':
+                  shouldInclude = itemName.match(/鹿|ロース|肉|味噌|香草|塩|コショウ|pepper|salt|miso/i);
+                  break;
+                case 'ウェリントン包み':
+                  shouldInclude = itemName.match(/パイ|シート|キャベツ|卵黄|pastry|puff|cabbage|egg/i);
+                  break;
+                case 'コンフィ・付け合わせ':
+                  shouldInclude = itemName.match(/白ネギ|ねぎ|オリーブオイル|ニンニク|タイム|ローリエ|leek|olive|garlic|thyme|bay/i);
+                  break;
+                case 'ドフィノワーズ':
+                  shouldInclude = itemName.match(/サツマイモ|ジャガイモ|生クリーム|牛乳|パルメザン|potato|cream|milk|parmesan/i);
+                  break;
+                case 'ソース・調味料':
+                  shouldInclude = itemName.match(/醤油|燻煙|柚子|バター|ブイヨン|コーンスターチ|soy|yuzu|butter|stock|cornstarch/i);
+                  break;
+                case 'フリカッセ・ガルニ':
+                  shouldInclude = itemName.match(/ジロル|トランペット|芽キャベツ|きのこ|茸|mushroom|brussels/i);
+                  break;
+                case 'ハーブ・薬味':
+                  shouldInclude = itemName.match(/ワサビ|わさび|香草|パセリ|wasabi|herb|parsley/i);
+                  break;
+                case '盛り付け・仕上げ':
+                  shouldInclude = itemName.match(/飾り|ガルニ|マイクロ|garnish|micro/i);
+                  break;
+              }
+              
+              if (shouldInclude) {
+                sectionIngredients.push(normalizedIngredient);
+                console.log(`    材料分類: "${normalizedIngredient.item}" → ${processName}`);
+              }
+            });
+            
+            if (sectionIngredients.length > 0) {
+              sections.push({
+                title: processName,
+                ingredients: sectionIngredients,
+                instructions: [],
+                totalWeight: null
+              });
+            }
+          });
+        }
+      }
+      
+      // 一般的な日本語プロレシピの場合
+      if (sections.length === 0) {
+        console.log('🍳 一般日本語プロレシピ処理');
+        
+        // 材料を基本的なカテゴリに分類
+        const basicCategories = {
+          '主材料': [],
+          '調味料・ソース': [],
+          '付け合わせ': [],
+          '仕上げ・飾り': []
+        };
+        
+        ingredients.forEach(ingredient => {
+          const normalizedIngredient = normalizeIngredientObject(ingredient);
+          const itemName = normalizedIngredient.item.toLowerCase();
+          
+          // 基本分類ルール
+          if (itemName.match(/肉|魚|鶏|豚|牛|鹿|猪|meat|fish|chicken|pork|beef|venison/i)) {
+            basicCategories['主材料'].push(normalizedIngredient);
+          } else if (itemName.match(/醤油|味噌|塩|砂糖|酢|油|ソース|バター|soy|miso|salt|sugar|vinegar|oil|sauce|butter/i)) {
+            basicCategories['調味料・ソース'].push(normalizedIngredient);
+          } else if (itemName.match(/野菜|きのこ|芋|ネギ|キャベツ|vegetable|mushroom|potato|leek|cabbage/i)) {
+            basicCategories['付け合わせ'].push(normalizedIngredient);
+          } else if (itemName.match(/飾り|香草|スパイス|garnish|herb|spice/i)) {
+            basicCategories['仕上げ・飾り'].push(normalizedIngredient);
+          } else {
+            // デフォルトは主材料に
+            basicCategories['主材料'].push(normalizedIngredient);
+          }
+        });
+        
+        // 空でないカテゴリのみセクションとして追加
+        Object.entries(basicCategories).forEach(([categoryName, categoryIngredients]) => {
+          if (categoryIngredients.length > 0) {
+            sections.push({
+              title: categoryName,
+              ingredients: categoryIngredients,
+              instructions: [],
+              totalWeight: null
+            });
+          }
+        });
+      }
+      
+      console.log('🏁 日本語プロレシピセクション作成完了:', sections.length, '個');
+      sections.forEach((section, index) => {
+        console.log(`  セクション ${index + 1}: "${section.title}" - 材料数: ${section.ingredients.length}`);
+      });
+      
+      return sections;
+    }
+
     // Valrhona専用の材料マッピング関数（改良版）
     function createValrhonaIngredientMapping(ingredients) {
       const mapping = {
@@ -2379,31 +2550,36 @@ Return only JSON.`;
       const r = recipeData || {};
       const ingredients = r.ingredients || [];
       const steps = r.steps || [];
+      const title = r.title || '';
       
       console.log('📊 基本統計:');
       console.log(`  材料数: ${ingredients.length}`);
       console.log(`  手順数: ${steps.length}`);
+      console.log(`  タイトル: "${title}"`);
       
-      // 1. 材料数が少ない場合はシンプル表示
-      if (ingredients.length < 6) {
-        console.log('❌ 材料数が少ない (< 6) - シンプル表示');
+      // 1. 材料数が少ない場合はシンプル表示（基準を緩和）
+      if (ingredients.length < 5) {
+        console.log('❌ 材料数が少ない (< 5) - シンプル表示');
         return false;
       }
       
-      // 2. 手順からセクション構造を検出
+      // 2. 手順からセクション構造を検出（日本語パターン強化）
       const stepsText = steps.join(' ').toLowerCase();
       const sectionIndicators = [
         // 英語パターン
         /for\s+the\s+\w+/g,
-        /\b(dough|batter|cream|sauce|filling|ganache|syrup|mixture)\b/g,
+        /\b(dough|batter|cream|sauce|filling|ganache|syrup|mixture|wellington|confit|fricassee|duxelles)\b/g,
         /step\s+\d+:/g,
         /part\s+\d+/g,
-        // 日本語パターン
+        // 日本語パターン（強化）
         /【.*?】/g,
         /■.*?■/g,
         /\d+\.\s*【/g,
         /工程\s*\d+/g,
-        /手順\s*\d+/g
+        /手順\s*\d+/g,
+        /①|②|③|④|⑤|⑥|⑦|⑧|⑨|⑩/g,
+        /を作る|を準備|下準備|仕上げ|盛り付け/g,
+        /ソース|生地|フィリング|トッピング|ガルニ/g
       ];
       
       let sectionCount = 0;
@@ -2415,45 +2591,84 @@ Return only JSON.`;
         }
       });
       
-      // 3. 材料名から複雑度を判定
+      // 3. 材料名から複雑度を判定（日本語・ジビエ料理対応強化）
       const complexIngredientPatterns = [
-        // 専門的な材料
+        // 専門的な材料（西洋）
         /ganache|couverture|valrhona|callebaut/i,
         /glucose|invert\s+sugar|isomalt/i,
         /gellan|agar|pectin|xanthan/i,
         // 複数の調理工程を示唆する材料
         /tempered|melted|whipped|clarified/i,
         /reduction|infusion|extract/i,
-        // 日本語の専門材料
+        // 日本語の専門材料（強化）
         /ガナッシュ|クーベルチュール|転化糖|アガー|ゼラチン/i,
-        /生クリーム.*?泡立て|バター.*?溶かし/i
+        /生クリーム.*?泡立て|バター.*?溶かし/i,
+        // ジビエ・高級食材
+        /鹿|猪|いのしし|ジビエ|venison|wild\s+boar/i,
+        /フォアグラ|トリュフ|キャビア|foie\s+gras|truffle|caviar/i,
+        // フランス料理技法
+        /ウェリントン|wellington|コンフィ|confit|フリカッセ|fricassee/i,
+        /ドフィノワーズ|dauphinoise|ベシャメル|bechamel|デュクセル|duxelles/i,
+        /ジュノベーゼ|genovese|フルール.*?セル|fleur.*?sel/i,
+        // 高級調味料・材料
+        /パルメザン|parmesan|グリュイエール|gruyere/i,
+        /エシャロット|shallot|マデラ|madeira|ポルト|port/i,
+        /燻製|スモーク|smoke|燻煙/i,
+        // 専門器具・技法を示唆
+        /真空|vacuum|低温|sous\s+vide/i,
+        /コンベクション|convection|スチーム|steam/i
       ];
       
       let complexIngredientCount = 0;
-      ingredients.forEach(ingredient => {
-        const itemName = typeof ingredient === 'string' ? ingredient : (ingredient.item || ingredient.name || '');
-        complexIngredientPatterns.forEach(pattern => {
-          if (pattern.test(itemName)) {
-            complexIngredientCount++;
-            console.log(`  複雑材料発見: "${itemName}"`);
-          }
-        });
+      const allText = `${title} ${ingredients.map(ing => 
+        typeof ing === 'string' ? ing : (ing.item || ing.name || '')
+      ).join(' ')} ${steps.join(' ')}`;
+      
+      complexIngredientPatterns.forEach(pattern => {
+        const matches = allText.match(pattern);
+        if (matches) {
+          complexIngredientCount += matches.length;
+          console.log(`  複雑材料/技法発見: ${matches.join(', ')}`);
+        }
       });
       
-      // 4. 総合判定
-      const complexityScore = sectionCount * 2 + complexIngredientCount;
+      // 4. プロレシピ・コンテスト入賞作品の検出
+      const professionalIndicators = [
+        /コンテスト|contest|competition|入賞|受賞|award/i,
+        /シェフ|chef|料理長|パティシエ|patissier/i,
+        /ホテル|hotel|レストラン|restaurant/i,
+        /プロ部門|professional|プロフェッショナル/i,
+        /ミシュラン|michelin|星付き/i
+      ];
+      
+      let professionalScore = 0;
+      professionalIndicators.forEach(pattern => {
+        if (pattern.test(allText)) {
+          professionalScore += 2;
+          console.log(`  プロ指標発見: ${pattern}`);
+        }
+      });
+      
+      // 5. 総合判定（基準を緩和）
+      const complexityScore = sectionCount * 1.5 + complexIngredientCount + professionalScore;
       console.log('📊 複雑度スコア計算:');
-      console.log(`  セクション数: ${sectionCount} × 2 = ${sectionCount * 2}`);
+      console.log(`  セクション数: ${sectionCount} × 1.5 = ${sectionCount * 1.5}`);
       console.log(`  複雑材料数: ${complexIngredientCount}`);
+      console.log(`  プロ指標: ${professionalScore}`);
       console.log(`  総合スコア: ${complexityScore}`);
       
-      // 5. 特定サイトは優先的にカテゴリ表示
+      // 6. 特定サイトは優先的にカテゴリ表示（日本語サイト追加）
       const isComplexSite = url && (
         url.includes('valrhona.com') ||
         url.includes('marmiton.org') ||
         url.includes('chef') ||
         url.includes('professional') ||
-        url.includes('patisserie')
+        url.includes('patisserie') ||
+        url.includes('gibier.or.jp') ||
+        url.includes('tsuji.ac.jp') ||
+        url.includes('cordonbleu') ||
+        url.includes('hotel') ||
+        url.includes('restaurant')
       );
       
       if (isComplexSite) {
@@ -2461,9 +2676,23 @@ Return only JSON.`;
         return true;
       }
       
-      // 6. 最終判定
-      const shouldCategorize = complexityScore >= 3 || (ingredients.length >= 10 && sectionCount > 0);
+      // 7. 材料数による判定（基準緩和）
+      const hasManyIngredients = ingredients.length >= 8;
+      const hasProfessionalElements = professionalScore > 0 || complexIngredientCount > 0;
+      
+      // 8. 最終判定（基準を大幅に緩和）
+      const shouldCategorize = 
+        complexityScore >= 2 || 
+        (ingredients.length >= 8 && sectionCount > 0) ||
+        (ingredients.length >= 12) ||
+        (hasProfessionalElements && ingredients.length >= 6);
+        
       console.log(`${shouldCategorize ? '✅' : '❌'} 最終判定: ${shouldCategorize ? 'カテゴリ表示' : 'シンプル表示'}`);
+      console.log('📋 判定理由:');
+      console.log(`  複雑度スコア >= 2: ${complexityScore >= 2} (${complexityScore})`);
+      console.log(`  材料8個以上 + セクション: ${ingredients.length >= 8 && sectionCount > 0} (材料:${ingredients.length}, セクション:${sectionCount})`);
+      console.log(`  材料12個以上: ${ingredients.length >= 12} (${ingredients.length})`);
+      console.log(`  プロ要素 + 材料6個以上: ${hasProfessionalElements && ingredients.length >= 6} (プロ:${hasProfessionalElements}, 材料:${ingredients.length})`);
       
       return shouldCategorize;
     }
