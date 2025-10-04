@@ -318,6 +318,55 @@
       border: 2px dashed var(--border-color);
       border-radius: 12px;
       background: var(--bg-primary);
+      transition: all 0.3s ease;
+      cursor: pointer;
+      position: relative;
+    }
+    
+    .image-upload-section:hover {
+      border-color: var(--accent-primary);
+      background: rgba(99, 102, 241, 0.05);
+    }
+    
+    .image-upload-section.drag-over {
+      border-color: var(--accent-primary);
+      background: rgba(99, 102, 241, 0.1);
+      border-style: solid;
+      transform: scale(1.02);
+      box-shadow: 0 8px 25px rgba(99, 102, 241, 0.15);
+    }
+    
+    .image-upload-section.drag-over::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(99, 102, 241, 0.1);
+      border-radius: 10px;
+      pointer-events: none;
+    }
+    
+    .drag-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(99, 102, 241, 0.9);
+      border-radius: 10px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 1.2rem;
+      font-weight: 600;
+      z-index: 10;
+    }
+    
+    .image-upload-section.drag-over .drag-overlay {
+      display: flex;
     }
     
     .btn.ghost {
@@ -943,8 +992,17 @@
       </div>
       <div class="modal-body">
         <div class="image-upload-section" id="uploadArea">
+          <div class="drag-overlay">
+            <div>
+              <i class="fas fa-download" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
+              <div>画像をドロップしてください</div>
+            </div>
+          </div>
           <i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: #666; margin-bottom: 1rem;"></i>
-          <p>レシピ画像をアップロードしてください</p>
+          <p style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem;">レシピ画像をアップロードしてください</p>
+          <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
+            画像をここにドラッグ&ドロップするか、下のボタンから選択してください
+          </p>
           <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 1rem;">
             <button type="button" id="fileSelectBtn" class="btn primary">
               <i class="fas fa-folder-open"></i> ファイルから選択
@@ -1146,6 +1204,73 @@
 
     // 言語選択の変更イベント
     targetLanguageSelect.addEventListener('change', updateTranslationUI);
+
+    // ページ全体でのドラッグ&ドロップを防止
+    document.addEventListener('dragover', (e) => {
+      e.preventDefault();
+    });
+    
+    document.addEventListener('drop', (e) => {
+      e.preventDefault();
+    });
+
+    // ドラッグ&ドロップイベントリスナー
+    const uploadArea = document.getElementById('uploadArea');
+    
+    // ドラッグ&ドロップイベントの設定
+    uploadArea.addEventListener('dragover', handleDragOver);
+    uploadArea.addEventListener('dragenter', handleDragEnter);
+    uploadArea.addEventListener('dragleave', handleDragLeave);
+    uploadArea.addEventListener('drop', handleDrop);
+    
+    // クリックでファイル選択
+    uploadArea.addEventListener('click', (e) => {
+      // ボタンクリック時は除外
+      if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+        return;
+      }
+      fileSelectBtn.click();
+    });
+
+    // ドラッグ&ドロップハンドラー関数
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    function handleDragEnter(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      uploadArea.classList.add('drag-over');
+    }
+
+    function handleDragLeave(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // 子要素から出た場合は無視
+      if (!uploadArea.contains(e.relatedTarget)) {
+        uploadArea.classList.remove('drag-over');
+      }
+    }
+
+    function handleDrop(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      uploadArea.classList.remove('drag-over');
+
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        const file = files[0];
+        
+        // 画像ファイルかチェック
+        if (file.type.startsWith('image/')) {
+          handleFile(file);
+        } else {
+          showImageMessage('画像ファイルをドロップしてください', 'error');
+        }
+      }
+    }
 
     function updateTranslationUI() {
       const selectedLanguage = targetLanguageSelect.value;
