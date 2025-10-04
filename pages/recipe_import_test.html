@@ -607,6 +607,60 @@
       box-shadow: none;
     }
     
+    .translation-selector {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    
+    .translation-selector label {
+      font-weight: 600;
+      color: var(--text-primary);
+      font-size: 0.9rem;
+      min-width: max-content;
+    }
+    
+    .language-select {
+      appearance: none;
+      background: var(--bg-surface);
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      padding: 0.5rem 2rem 0.5rem 0.75rem;
+      font-size: 0.9rem;
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+      background-position: right 0.5rem center;
+      background-repeat: no-repeat;
+      background-size: 1.5em 1.5em;
+      min-width: 200px;
+    }
+    
+    .language-select:hover {
+      border-color: var(--accent-primary);
+    }
+    
+    .language-select:focus {
+      outline: none;
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+    
+    @media (max-width: 768px) {
+      .translation-selector {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+      }
+      
+      .language-select {
+        min-width: unset;
+        width: 100%;
+      }
+    }
+    
     .results-grid.with-translation {
       grid-template-columns: 1fr 1fr 1fr;
     }
@@ -827,15 +881,28 @@
           </div>
         </div>
         
-        <div class="translation-controls" id="translationControls" style="margin-top: 1rem; display: none;">
+        <div class="translation-controls" id="translationControls" style="margin-top: 1rem;">
+          <div class="translation-selector">
+            <label for="targetLanguage">翻訳先言語:</label>
+            <select id="targetLanguage" class="language-select">
+              <option value="japanese">🇯🇵 日本語 (Japanese)</option>
+              <option value="english">🇺🇸 英語 (English)</option>
+              <option value="french">🇫🇷 フランス語 (Français)</option>
+              <option value="italian">🇮🇹 イタリア語 (Italiano)</option>
+              <option value="german">🇩🇪 ドイツ語 (Deutsch)</option>
+              <option value="spanish">🇪🇸 スペイン語 (Español)</option>
+              <option value="korean">🇰🇷 韓国語 (한국어)</option>
+              <option value="chinese">🇨🇳 中国語 (中文)</option>
+            </select>
+          </div>
           <button type="button" id="translateButton" class="translate-btn">
-            <i class="fa-solid fa-language"></i> 日本語に翻訳
+            <i class="fa-solid fa-language"></i> <span id="translateButtonText">翻訳する</span>
           </button>
         </div>
       </div>
 
       <div class="result-section" id="translationSection" style="display: none;">
-        <h3><i class="fa-solid fa-language"></i> 日本語翻訳</h3>
+        <h3><i class="fa-solid fa-language"></i> <span id="translationSectionTitle">翻訳結果</span></h3>
         <div class="recipe-preview" id="translatedRecipePreview">
           <div class="recipe-field">
             <label>タイトル</label>
@@ -918,6 +985,9 @@
     const translateButton = document.getElementById('translateButton');
     const translationSection = document.getElementById('translationSection');
     const translationControls = document.getElementById('translationControls');
+    const targetLanguageSelect = document.getElementById('targetLanguage');
+    const translateButtonText = document.getElementById('translateButtonText');
+    const translationSectionTitle = document.getElementById('translationSectionTitle');
     
     // 画像解析用の変数
     let currentFile = null;
@@ -1073,6 +1143,27 @@
 
     analyzeButton.addEventListener('click', analyzeImage);
     clearImageButton.addEventListener('click', clearImage);
+
+    // 言語選択の変更イベント
+    targetLanguageSelect.addEventListener('change', updateTranslationUI);
+
+    function updateTranslationUI() {
+      const selectedLanguage = targetLanguageSelect.value;
+      const languageNames = {
+        japanese: '日本語',
+        english: '英語',
+        french: 'フランス語',
+        italian: 'イタリア語',
+        german: 'ドイツ語',
+        spanish: 'スペイン語',
+        korean: '韓国語',
+        chinese: '中国語'
+      };
+      
+      const languageName = languageNames[selectedLanguage] || '選択言語';
+      translateButtonText.textContent = `${languageName}に翻訳`;
+      translationSectionTitle.textContent = `${languageName}翻訳`;
+    }
 
     function closeImageModal() {
       imageModal.style.display = 'none';
@@ -1350,13 +1441,25 @@
         translationSection.style.display = 'block';
         console.log('🎨 レイアウト変更完了');
         
-        translateButton.innerHTML = '<i class="fa-solid fa-check"></i> 翻訳完了';
+        const selectedLanguage = targetLanguageSelect.value;
+        const languageNames = {
+          japanese: '日本語',
+          english: '英語',
+          french: 'フランス語',
+          italian: 'イタリア語',
+          german: 'ドイツ語',
+          spanish: 'スペイン語',
+          korean: '韓国語',
+          chinese: '中国語'
+        };
+        const languageName = languageNames[selectedLanguage] || '選択言語';
+        translateButton.innerHTML = `<i class="fa-solid fa-check"></i> ${languageName}翻訳完了`;
         console.log('✅ 翻訳処理全体完了');
         
       } catch (error) {
         console.error('❌ 翻訳エラー:', error);
         setStatus(`翻訳エラー: ${error.message}`, 'error', 'fa-triangle-exclamation');
-        translateButton.innerHTML = '<i class="fa-solid fa-language"></i> 日本語に翻訳';
+        updateTranslationUI();
       } finally {
         translateButton.disabled = false;
       }
@@ -1833,12 +1936,20 @@ Return only JSON.`;
         stepsList.appendChild(item);
       }
       
-      // 翻訳ボタンの表示制御
-      if (!isJapaneseContent) {
-        translationControls.style.display = 'block';
+      // 翻訳ボタンの表示制御（常に表示）
+      translationControls.style.display = 'block';
+      
+      // デフォルト言語を設定
+      if (isJapaneseContent) {
+        // 日本語コンテンツの場合、英語をデフォルトに
+        targetLanguageSelect.value = 'english';
       } else {
-        translationControls.style.display = 'none';
+        // 海外コンテンツの場合、日本語をデフォルトに
+        targetLanguageSelect.value = 'japanese';
       }
+      
+      // UIを更新
+      updateTranslationUI();
       
     }
 
@@ -2047,11 +2158,12 @@ Return only JSON.`;
 
     // レシピデータを翻訳する関数
     async function translateRecipeData(recipeData) {
+      const selectedLanguage = targetLanguageSelect.value;
       const { data, error } = await sb.functions.invoke('call-groq-api', {
         body: {
           mode: 'recipe_translation',
           recipeData: recipeData,
-          targetLanguage: 'ja',
+          targetLanguage: selectedLanguage,
           targetLanguageName: '日本語'
         }
       });
