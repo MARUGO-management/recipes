@@ -3934,9 +3934,9 @@ Return only JSON.`;
       console.log('🖼️ 翻訳材料データタイプ:', typeof t.ingredients);
       console.log('🖼️ 翻訳材料データ長さ:', t.ingredients?.length);
       
-      // 翻訳後も元のセクション構造を維持
-      console.log('🌐 翻訳時のセクション構造維持処理開始');
-      displayTranslatedIngredientsWithStructure(t, currentRecipeData, 'flexibleTranslatedIngredientsDisplay');
+      // 翻訳後も元のレシピと同じフォーマットで表示
+      console.log('🌐 翻訳材料表示開始 - 元と同じフォーマット適用');
+      displayIngredientsFlexibly(t, 'flexibleTranslatedIngredientsDisplay', window.lastProcessedUrl || '');
       
       // 手順
       const translatedStepsList = document.getElementById('translatedStepsList');
